@@ -24,39 +24,8 @@ var _ = math.Inf
 // proto package needs to be updated.
 const _ = proto.ProtoPackageIsVersion3 // please upgrade the proto package
 
-type Empty struct {
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *Empty) Reset()         { *m = Empty{} }
-func (m *Empty) String() string { return proto.CompactTextString(m) }
-func (*Empty) ProtoMessage()    {}
-func (*Empty) Descriptor() ([]byte, []int) {
-	return fileDescriptor_681cbf33fad43e59, []int{0}
-}
-
-func (m *Empty) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_Empty.Unmarshal(m, b)
-}
-func (m *Empty) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_Empty.Marshal(b, m, deterministic)
-}
-func (m *Empty) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_Empty.Merge(m, src)
-}
-func (m *Empty) XXX_Size() int {
-	return xxx_messageInfo_Empty.Size(m)
-}
-func (m *Empty) XXX_DiscardUnknown() {
-	xxx_messageInfo_Empty.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_Empty proto.InternalMessageInfo
-
 type HeartbeatRequest struct {
-	Node                 string   `protobuf:"bytes,1,opt,name=node,proto3" json:"node,omitempty"`
+	Nodename             string   `protobuf:"bytes,1,opt,name=nodename,proto3" json:"nodename,omitempty"`
 	Host                 string   `protobuf:"bytes,2,opt,name=host,proto3" json:"host,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
@@ -67,7 +36,7 @@ func (m *HeartbeatRequest) Reset()         { *m = HeartbeatRequest{} }
 func (m *HeartbeatRequest) String() string { return proto.CompactTextString(m) }
 func (*HeartbeatRequest) ProtoMessage()    {}
 func (*HeartbeatRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_681cbf33fad43e59, []int{1}
+	return fileDescriptor_681cbf33fad43e59, []int{0}
 }
 
 func (m *HeartbeatRequest) XXX_Unmarshal(b []byte) error {
@@ -88,9 +57,9 @@ func (m *HeartbeatRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_HeartbeatRequest proto.InternalMessageInfo
 
-func (m *HeartbeatRequest) GetNode() string {
+func (m *HeartbeatRequest) GetNodename() string {
 	if m != nil {
-		return m.Node
+		return m.Nodename
 	}
 	return ""
 }
@@ -102,9 +71,269 @@ func (m *HeartbeatRequest) GetHost() string {
 	return ""
 }
 
-type StartJobRequest struct {
+type Empty struct {
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *Empty) Reset()         { *m = Empty{} }
+func (m *Empty) String() string { return proto.CompactTextString(m) }
+func (*Empty) ProtoMessage()    {}
+func (*Empty) Descriptor() ([]byte, []int) {
+	return fileDescriptor_681cbf33fad43e59, []int{1}
+}
+
+func (m *Empty) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_Empty.Unmarshal(m, b)
+}
+func (m *Empty) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_Empty.Marshal(b, m, deterministic)
+}
+func (m *Empty) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_Empty.Merge(m, src)
+}
+func (m *Empty) XXX_Size() int {
+	return xxx_messageInfo_Empty.Size(m)
+}
+func (m *Empty) XXX_DiscardUnknown() {
+	xxx_messageInfo_Empty.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_Empty proto.InternalMessageInfo
+
+type GetNodesReply struct {
+	ReadyNodes           []string `protobuf:"bytes,1,rep,name=ready_nodes,json=readyNodes,proto3" json:"ready_nodes,omitempty"`
+	ErrorNodes           []string `protobuf:"bytes,2,rep,name=error_nodes,json=errorNodes,proto3" json:"error_nodes,omitempty"`
+	LostNodes            []string `protobuf:"bytes,3,rep,name=lost_nodes,json=lostNodes,proto3" json:"lost_nodes,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *GetNodesReply) Reset()         { *m = GetNodesReply{} }
+func (m *GetNodesReply) String() string { return proto.CompactTextString(m) }
+func (*GetNodesReply) ProtoMessage()    {}
+func (*GetNodesReply) Descriptor() ([]byte, []int) {
+	return fileDescriptor_681cbf33fad43e59, []int{2}
+}
+
+func (m *GetNodesReply) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_GetNodesReply.Unmarshal(m, b)
+}
+func (m *GetNodesReply) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_GetNodesReply.Marshal(b, m, deterministic)
+}
+func (m *GetNodesReply) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_GetNodesReply.Merge(m, src)
+}
+func (m *GetNodesReply) XXX_Size() int {
+	return xxx_messageInfo_GetNodesReply.Size(m)
+}
+func (m *GetNodesReply) XXX_DiscardUnknown() {
+	xxx_messageInfo_GetNodesReply.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_GetNodesReply proto.InternalMessageInfo
+
+func (m *GetNodesReply) GetReadyNodes() []string {
+	if m != nil {
+		return m.ReadyNodes
+	}
+	return nil
+}
+
+func (m *GetNodesReply) GetErrorNodes() []string {
+	if m != nil {
+		return m.ErrorNodes
+	}
+	return nil
+}
+
+func (m *GetNodesReply) GetLostNodes() []string {
+	if m != nil {
+		return m.LostNodes
+	}
+	return nil
+}
+
+type StartClusJobRequest struct {
 	Command              string   `protobuf:"bytes,1,opt,name=command,proto3" json:"command,omitempty"`
-	Id                   uint32   `protobuf:"varint,2,opt,name=id,proto3" json:"id,omitempty"`
+	Nodes                []string `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	Pattern              string   `protobuf:"bytes,3,opt,name=pattern,proto3" json:"pattern,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *StartClusJobRequest) Reset()         { *m = StartClusJobRequest{} }
+func (m *StartClusJobRequest) String() string { return proto.CompactTextString(m) }
+func (*StartClusJobRequest) ProtoMessage()    {}
+func (*StartClusJobRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_681cbf33fad43e59, []int{3}
+}
+
+func (m *StartClusJobRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_StartClusJobRequest.Unmarshal(m, b)
+}
+func (m *StartClusJobRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_StartClusJobRequest.Marshal(b, m, deterministic)
+}
+func (m *StartClusJobRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StartClusJobRequest.Merge(m, src)
+}
+func (m *StartClusJobRequest) XXX_Size() int {
+	return xxx_messageInfo_StartClusJobRequest.Size(m)
+}
+func (m *StartClusJobRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_StartClusJobRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_StartClusJobRequest proto.InternalMessageInfo
+
+func (m *StartClusJobRequest) GetCommand() string {
+	if m != nil {
+		return m.Command
+	}
+	return ""
+}
+
+func (m *StartClusJobRequest) GetNodes() []string {
+	if m != nil {
+		return m.Nodes
+	}
+	return nil
+}
+
+func (m *StartClusJobRequest) GetPattern() string {
+	if m != nil {
+		return m.Pattern
+	}
+	return ""
+}
+
+type StartClusJobReply struct {
+	JobId                uint32   `protobuf:"varint,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	Nodes                []string `protobuf:"bytes,2,rep,name=nodes,proto3" json:"nodes,omitempty"`
+	Node                 string   `protobuf:"bytes,3,opt,name=node,proto3" json:"node,omitempty"`
+	Stdout               string   `protobuf:"bytes,4,opt,name=stdout,proto3" json:"stdout,omitempty"`
+	Stderr               string   `protobuf:"bytes,5,opt,name=stderr,proto3" json:"stderr,omitempty"`
+	ExitCode             int32    `protobuf:"zigzag32,6,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *StartClusJobReply) Reset()         { *m = StartClusJobReply{} }
+func (m *StartClusJobReply) String() string { return proto.CompactTextString(m) }
+func (*StartClusJobReply) ProtoMessage()    {}
+func (*StartClusJobReply) Descriptor() ([]byte, []int) {
+	return fileDescriptor_681cbf33fad43e59, []int{4}
+}
+
+func (m *StartClusJobReply) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_StartClusJobReply.Unmarshal(m, b)
+}
+func (m *StartClusJobReply) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_StartClusJobReply.Marshal(b, m, deterministic)
+}
+func (m *StartClusJobReply) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StartClusJobReply.Merge(m, src)
+}
+func (m *StartClusJobReply) XXX_Size() int {
+	return xxx_messageInfo_StartClusJobReply.Size(m)
+}
+func (m *StartClusJobReply) XXX_DiscardUnknown() {
+	xxx_messageInfo_StartClusJobReply.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_StartClusJobReply proto.InternalMessageInfo
+
+func (m *StartClusJobReply) GetJobId() uint32 {
+	if m != nil {
+		return m.JobId
+	}
+	return 0
+}
+
+func (m *StartClusJobReply) GetNodes() []string {
+	if m != nil {
+		return m.Nodes
+	}
+	return nil
+}
+
+func (m *StartClusJobReply) GetNode() string {
+	if m != nil {
+		return m.Node
+	}
+	return ""
+}
+
+func (m *StartClusJobReply) GetStdout() string {
+	if m != nil {
+		return m.Stdout
+	}
+	return ""
+}
+
+func (m *StartClusJobReply) GetStderr() string {
+	if m != nil {
+		return m.Stderr
+	}
+	return ""
+}
+
+func (m *StartClusJobReply) GetExitCode() int32 {
+	if m != nil {
+		return m.ExitCode
+	}
+	return 0
+}
+
+type CancelClusJobRequest struct {
+	JobId                string   `protobuf:"bytes,1,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *CancelClusJobRequest) Reset()         { *m = CancelClusJobRequest{} }
+func (m *CancelClusJobRequest) String() string { return proto.CompactTextString(m) }
+func (*CancelClusJobRequest) ProtoMessage()    {}
+func (*CancelClusJobRequest) Descriptor() ([]byte, []int) {
+	return fileDescriptor_681cbf33fad43e59, []int{5}
+}
+
+func (m *CancelClusJobRequest) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_CancelClusJobRequest.Unmarshal(m, b)
+}
+func (m *CancelClusJobRequest) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_CancelClusJobRequest.Marshal(b, m, deterministic)
+}
+func (m *CancelClusJobRequest) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_CancelClusJobRequest.Merge(m, src)
+}
+func (m *CancelClusJobRequest) XXX_Size() int {
+	return xxx_messageInfo_CancelClusJobRequest.Size(m)
+}
+func (m *CancelClusJobRequest) XXX_DiscardUnknown() {
+	xxx_messageInfo_CancelClusJobRequest.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_CancelClusJobRequest proto.InternalMessageInfo
+
+func (m *CancelClusJobRequest) GetJobId() string {
+	if m != nil {
+		return m.JobId
+	}
+	return ""
+}
+
+type StartJobRequest struct {
+	Headnode             string   `protobuf:"bytes,1,opt,name=headnode,proto3" json:"headnode,omitempty"`
+	JobId                uint32   `protobuf:"varint,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	Command              string   `protobuf:"bytes,3,opt,name=command,proto3" json:"command,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -114,7 +343,7 @@ func (m *StartJobRequest) Reset()         { *m = StartJobRequest{} }
 func (m *StartJobRequest) String() string { return proto.CompactTextString(m) }
 func (*StartJobRequest) ProtoMessage()    {}
 func (*StartJobRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_681cbf33fad43e59, []int{2}
+	return fileDescriptor_681cbf33fad43e59, []int{6}
 }
 
 func (m *StartJobRequest) XXX_Unmarshal(b []byte) error {
@@ -135,6 +364,20 @@ func (m *StartJobRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_StartJobRequest proto.InternalMessageInfo
 
+func (m *StartJobRequest) GetHeadnode() string {
+	if m != nil {
+		return m.Headnode
+	}
+	return ""
+}
+
+func (m *StartJobRequest) GetJobId() uint32 {
+	if m != nil {
+		return m.JobId
+	}
+	return 0
+}
+
 func (m *StartJobRequest) GetCommand() string {
 	if m != nil {
 		return m.Command
@@ -142,16 +385,65 @@ func (m *StartJobRequest) GetCommand() string {
 	return ""
 }
 
-func (m *StartJobRequest) GetId() uint32 {
+type StartJobReply struct {
+	Stdout               string   `protobuf:"bytes,1,opt,name=stdout,proto3" json:"stdout,omitempty"`
+	Stderr               string   `protobuf:"bytes,2,opt,name=stderr,proto3" json:"stderr,omitempty"`
+	ExitCode             int32    `protobuf:"zigzag32,3,opt,name=exit_code,json=exitCode,proto3" json:"exit_code,omitempty"`
+	XXX_NoUnkeyedLiteral struct{} `json:"-"`
+	XXX_unrecognized     []byte   `json:"-"`
+	XXX_sizecache        int32    `json:"-"`
+}
+
+func (m *StartJobReply) Reset()         { *m = StartJobReply{} }
+func (m *StartJobReply) String() string { return proto.CompactTextString(m) }
+func (*StartJobReply) ProtoMessage()    {}
+func (*StartJobReply) Descriptor() ([]byte, []int) {
+	return fileDescriptor_681cbf33fad43e59, []int{7}
+}
+
+func (m *StartJobReply) XXX_Unmarshal(b []byte) error {
+	return xxx_messageInfo_StartJobReply.Unmarshal(m, b)
+}
+func (m *StartJobReply) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
+	return xxx_messageInfo_StartJobReply.Marshal(b, m, deterministic)
+}
+func (m *StartJobReply) XXX_Merge(src proto.Message) {
+	xxx_messageInfo_StartJobReply.Merge(m, src)
+}
+func (m *StartJobReply) XXX_Size() int {
+	return xxx_messageInfo_StartJobReply.Size(m)
+}
+func (m *StartJobReply) XXX_DiscardUnknown() {
+	xxx_messageInfo_StartJobReply.DiscardUnknown(m)
+}
+
+var xxx_messageInfo_StartJobReply proto.InternalMessageInfo
+
+func (m *StartJobReply) GetStdout() string {
 	if m != nil {
-		return m.Id
+		return m.Stdout
+	}
+	return ""
+}
+
+func (m *StartJobReply) GetStderr() string {
+	if m != nil {
+		return m.Stderr
+	}
+	return ""
+}
+
+func (m *StartJobReply) GetExitCode() int32 {
+	if m != nil {
+		return m.ExitCode
 	}
 	return 0
 }
 
 type CancelJobRequest struct {
-	Id                   uint32   `protobuf:"varint,1,opt,name=id,proto3" json:"id,omitempty"`
-	Force                bool     `protobuf:"varint,2,opt,name=force,proto3" json:"force,omitempty"`
+	Headnode             string   `protobuf:"bytes,1,opt,name=headnode,proto3" json:"headnode,omitempty"`
+	JobId                uint32   `protobuf:"varint,2,opt,name=job_id,json=jobId,proto3" json:"job_id,omitempty"`
+	Force                bool     `protobuf:"varint,3,opt,name=force,proto3" json:"force,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
 	XXX_unrecognized     []byte   `json:"-"`
 	XXX_sizecache        int32    `json:"-"`
@@ -161,7 +453,7 @@ func (m *CancelJobRequest) Reset()         { *m = CancelJobRequest{} }
 func (m *CancelJobRequest) String() string { return proto.CompactTextString(m) }
 func (*CancelJobRequest) ProtoMessage()    {}
 func (*CancelJobRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_681cbf33fad43e59, []int{3}
+	return fileDescriptor_681cbf33fad43e59, []int{8}
 }
 
 func (m *CancelJobRequest) XXX_Unmarshal(b []byte) error {
@@ -182,9 +474,16 @@ func (m *CancelJobRequest) XXX_DiscardUnknown() {
 
 var xxx_messageInfo_CancelJobRequest proto.InternalMessageInfo
 
-func (m *CancelJobRequest) GetId() uint32 {
+func (m *CancelJobRequest) GetHeadnode() string {
 	if m != nil {
-		return m.Id
+		return m.Headnode
+	}
+	return ""
+}
+
+func (m *CancelJobRequest) GetJobId() uint32 {
+	if m != nil {
+		return m.JobId
 	}
 	return 0
 }
@@ -208,7 +507,7 @@ func (m *ValidateRequest) Reset()         { *m = ValidateRequest{} }
 func (m *ValidateRequest) String() string { return proto.CompactTextString(m) }
 func (*ValidateRequest) ProtoMessage()    {}
 func (*ValidateRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_681cbf33fad43e59, []int{4}
+	return fileDescriptor_681cbf33fad43e59, []int{9}
 }
 
 func (m *ValidateRequest) XXX_Unmarshal(b []byte) error {
@@ -254,7 +553,7 @@ func (m *ValidateReply) Reset()         { *m = ValidateReply{} }
 func (m *ValidateReply) String() string { return proto.CompactTextString(m) }
 func (*ValidateReply) ProtoMessage()    {}
 func (*ValidateReply) Descriptor() ([]byte, []int) {
-	return fileDescriptor_681cbf33fad43e59, []int{5}
+	return fileDescriptor_681cbf33fad43e59, []int{10}
 }
 
 func (m *ValidateReply) XXX_Unmarshal(b []byte) error {
@@ -282,61 +581,6 @@ func (m *ValidateReply) GetNodename() string {
 	return ""
 }
 
-type GetNodesReply struct {
-	ReadyNodes           []string `protobuf:"bytes,1,rep,name=ready_nodes,json=readyNodes,proto3" json:"ready_nodes,omitempty"`
-	ErrorNodes           []string `protobuf:"bytes,2,rep,name=error_nodes,json=errorNodes,proto3" json:"error_nodes,omitempty"`
-	LostNodes            []string `protobuf:"bytes,3,rep,name=lost_nodes,json=lostNodes,proto3" json:"lost_nodes,omitempty"`
-	XXX_NoUnkeyedLiteral struct{} `json:"-"`
-	XXX_unrecognized     []byte   `json:"-"`
-	XXX_sizecache        int32    `json:"-"`
-}
-
-func (m *GetNodesReply) Reset()         { *m = GetNodesReply{} }
-func (m *GetNodesReply) String() string { return proto.CompactTextString(m) }
-func (*GetNodesReply) ProtoMessage()    {}
-func (*GetNodesReply) Descriptor() ([]byte, []int) {
-	return fileDescriptor_681cbf33fad43e59, []int{6}
-}
-
-func (m *GetNodesReply) XXX_Unmarshal(b []byte) error {
-	return xxx_messageInfo_GetNodesReply.Unmarshal(m, b)
-}
-func (m *GetNodesReply) XXX_Marshal(b []byte, deterministic bool) ([]byte, error) {
-	return xxx_messageInfo_GetNodesReply.Marshal(b, m, deterministic)
-}
-func (m *GetNodesReply) XXX_Merge(src proto.Message) {
-	xxx_messageInfo_GetNodesReply.Merge(m, src)
-}
-func (m *GetNodesReply) XXX_Size() int {
-	return xxx_messageInfo_GetNodesReply.Size(m)
-}
-func (m *GetNodesReply) XXX_DiscardUnknown() {
-	xxx_messageInfo_GetNodesReply.DiscardUnknown(m)
-}
-
-var xxx_messageInfo_GetNodesReply proto.InternalMessageInfo
-
-func (m *GetNodesReply) GetReadyNodes() []string {
-	if m != nil {
-		return m.ReadyNodes
-	}
-	return nil
-}
-
-func (m *GetNodesReply) GetErrorNodes() []string {
-	if m != nil {
-		return m.ErrorNodes
-	}
-	return nil
-}
-
-func (m *GetNodesReply) GetLostNodes() []string {
-	if m != nil {
-		return m.LostNodes
-	}
-	return nil
-}
-
 type SetHeadnodesRequest struct {
 	Headnodes            []string `protobuf:"bytes,1,rep,name=headnodes,proto3" json:"headnodes,omitempty"`
 	XXX_NoUnkeyedLiteral struct{} `json:"-"`
@@ -348,7 +592,7 @@ func (m *SetHeadnodesRequest) Reset()         { *m = SetHeadnodesRequest{} }
 func (m *SetHeadnodesRequest) String() string { return proto.CompactTextString(m) }
 func (*SetHeadnodesRequest) ProtoMessage()    {}
 func (*SetHeadnodesRequest) Descriptor() ([]byte, []int) {
-	return fileDescriptor_681cbf33fad43e59, []int{7}
+	return fileDescriptor_681cbf33fad43e59, []int{11}
 }
 
 func (m *SetHeadnodesRequest) XXX_Unmarshal(b []byte) error {
@@ -387,7 +631,7 @@ func (m *SetHeadnodesReply) Reset()         { *m = SetHeadnodesReply{} }
 func (m *SetHeadnodesReply) String() string { return proto.CompactTextString(m) }
 func (*SetHeadnodesReply) ProtoMessage()    {}
 func (*SetHeadnodesReply) Descriptor() ([]byte, []int) {
-	return fileDescriptor_681cbf33fad43e59, []int{8}
+	return fileDescriptor_681cbf33fad43e59, []int{12}
 }
 
 func (m *SetHeadnodesReply) XXX_Unmarshal(b []byte) error {
@@ -426,7 +670,7 @@ func (m *GetHeadnodesReply) Reset()         { *m = GetHeadnodesReply{} }
 func (m *GetHeadnodesReply) String() string { return proto.CompactTextString(m) }
 func (*GetHeadnodesReply) ProtoMessage()    {}
 func (*GetHeadnodesReply) Descriptor() ([]byte, []int) {
-	return fileDescriptor_681cbf33fad43e59, []int{9}
+	return fileDescriptor_681cbf33fad43e59, []int{13}
 }
 
 func (m *GetHeadnodesReply) XXX_Unmarshal(b []byte) error {
@@ -455,13 +699,17 @@ func (m *GetHeadnodesReply) GetHeadnodes() map[string]bool {
 }
 
 func init() {
-	proto.RegisterType((*Empty)(nil), "clusrun.Empty")
 	proto.RegisterType((*HeartbeatRequest)(nil), "clusrun.HeartbeatRequest")
+	proto.RegisterType((*Empty)(nil), "clusrun.Empty")
+	proto.RegisterType((*GetNodesReply)(nil), "clusrun.GetNodesReply")
+	proto.RegisterType((*StartClusJobRequest)(nil), "clusrun.StartClusJobRequest")
+	proto.RegisterType((*StartClusJobReply)(nil), "clusrun.StartClusJobReply")
+	proto.RegisterType((*CancelClusJobRequest)(nil), "clusrun.CancelClusJobRequest")
 	proto.RegisterType((*StartJobRequest)(nil), "clusrun.StartJobRequest")
+	proto.RegisterType((*StartJobReply)(nil), "clusrun.StartJobReply")
 	proto.RegisterType((*CancelJobRequest)(nil), "clusrun.CancelJobRequest")
 	proto.RegisterType((*ValidateRequest)(nil), "clusrun.ValidateRequest")
 	proto.RegisterType((*ValidateReply)(nil), "clusrun.ValidateReply")
-	proto.RegisterType((*GetNodesReply)(nil), "clusrun.GetNodesReply")
 	proto.RegisterType((*SetHeadnodesRequest)(nil), "clusrun.SetHeadnodesRequest")
 	proto.RegisterType((*SetHeadnodesReply)(nil), "clusrun.SetHeadnodesReply")
 	proto.RegisterMapType((map[string]string)(nil), "clusrun.SetHeadnodesReply.ResultsEntry")
@@ -472,41 +720,52 @@ func init() {
 func init() { proto.RegisterFile("proto/clusrun.proto", fileDescriptor_681cbf33fad43e59) }
 
 var fileDescriptor_681cbf33fad43e59 = []byte{
-	// 531 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x84, 0x54, 0x5d, 0x6f, 0xd3, 0x30,
-	0x14, 0x4d, 0x52, 0x46, 0x93, 0xdb, 0x8f, 0x75, 0x1e, 0x42, 0x21, 0x1a, 0x62, 0xf2, 0x0b, 0x43,
-	0x48, 0x45, 0xea, 0x10, 0xaa, 0xca, 0x84, 0x84, 0xa6, 0xa9, 0x63, 0x0f, 0x3c, 0x64, 0x12, 0xaf,
-	0xc8, 0x6d, 0x8c, 0x56, 0x91, 0xc6, 0xc5, 0x71, 0x90, 0xc2, 0xcf, 0xe0, 0x91, 0x1f, 0xc4, 0xef,
-	0x42, 0xb6, 0xe3, 0xc4, 0x4d, 0x5b, 0xf1, 0x96, 0x7b, 0xcf, 0x39, 0xc9, 0xb9, 0xf6, 0x3d, 0x81,
-	0xd3, 0x0d, 0x67, 0x82, 0xbd, 0x59, 0xa6, 0x45, 0xce, 0x8b, 0x6c, 0xac, 0x2a, 0xd4, 0xad, 0x4a,
-	0xdc, 0x85, 0xa3, 0x9b, 0xf5, 0x46, 0x94, 0x78, 0x06, 0xa3, 0x5b, 0x4a, 0xb8, 0x58, 0x50, 0x22,
-	0x62, 0xfa, 0xa3, 0xa0, 0xb9, 0x40, 0x08, 0x1e, 0x65, 0x2c, 0xa1, 0xa1, 0x7b, 0xee, 0x5e, 0x04,
-	0xb1, 0x7a, 0x96, 0xbd, 0x07, 0x96, 0x8b, 0xd0, 0xd3, 0x3d, 0xf9, 0x8c, 0xdf, 0xc3, 0xf1, 0xbd,
-	0x20, 0x5c, 0xdc, 0xb1, 0x85, 0x91, 0x86, 0xd0, 0x5d, 0xb2, 0xf5, 0x9a, 0x64, 0x49, 0xa5, 0x36,
-	0x25, 0x1a, 0x82, 0xb7, 0x4a, 0x94, 0x7c, 0x10, 0x7b, 0xab, 0x04, 0x4f, 0x61, 0x74, 0x4d, 0xb2,
-	0x25, 0x4d, 0x2d, 0xb5, 0xe6, 0xb8, 0x86, 0x83, 0x9e, 0xc0, 0xd1, 0x37, 0xc6, 0x97, 0x54, 0xc9,
-	0xfc, 0x58, 0x17, 0xf8, 0x13, 0x1c, 0x7f, 0x21, 0xe9, 0x2a, 0x21, 0x82, 0x1a, 0x61, 0x04, 0xfe,
-	0x03, 0x25, 0x89, 0xe5, 0xba, 0xae, 0x25, 0x26, 0xa7, 0x56, 0x98, 0x76, 0x5f, 0xd7, 0xf8, 0x35,
-	0x0c, 0x9a, 0x57, 0x6d, 0xd2, 0x52, 0x92, 0x25, 0x90, 0x91, 0x75, 0xfd, 0x22, 0x53, 0xe3, 0x0d,
-	0x0c, 0xe6, 0x54, 0x7c, 0x66, 0x09, 0xcd, 0x35, 0xf9, 0x05, 0xf4, 0x38, 0x25, 0x49, 0xf9, 0x55,
-	0x52, 0xf2, 0xd0, 0x3d, 0xef, 0x5c, 0x04, 0x31, 0xa8, 0x96, 0x62, 0x49, 0x02, 0xe5, 0x9c, 0xf1,
-	0x8a, 0xe0, 0x69, 0x82, 0x6a, 0x69, 0xc2, 0x73, 0x80, 0x94, 0xe5, 0xa2, 0xc2, 0x3b, 0x0a, 0x0f,
-	0x64, 0x47, 0xc1, 0xf8, 0x12, 0x4e, 0xef, 0xa9, 0xb8, 0xad, 0x26, 0xc9, 0xcd, 0xb4, 0x67, 0x10,
-	0x98, 0xe9, 0xcc, 0x57, 0x9b, 0x06, 0xfe, 0xed, 0xc2, 0xc9, 0xb6, 0x4a, 0x7a, 0xfd, 0x08, 0x5d,
-	0x4e, 0xf3, 0x22, 0x15, 0x5a, 0xd1, 0x9b, 0xbc, 0x1c, 0x9b, 0xd5, 0xd8, 0x21, 0x8f, 0x63, 0xcd,
-	0xbc, 0xc9, 0x04, 0x2f, 0x63, 0xa3, 0x8b, 0x66, 0xd0, 0xb7, 0x01, 0x34, 0x82, 0xce, 0x77, 0x5a,
-	0x56, 0xc7, 0x24, 0x1f, 0xe5, 0x7d, 0xfd, 0x24, 0x69, 0x61, 0xce, 0x59, 0x17, 0x33, 0x6f, 0xea,
-	0xe2, 0x3f, 0x2e, 0x9c, 0xcc, 0x77, 0x4c, 0xcd, 0xdb, 0x83, 0xf4, 0x26, 0xaf, 0x6a, 0x5b, 0x3b,
-	0xf4, 0x71, 0x5d, 0x6a, 0x63, 0x8d, 0x36, 0xba, 0x82, 0xe1, 0x36, 0xf8, 0x3f, 0x73, 0xbe, 0x65,
-	0x6e, 0xf2, 0x0b, 0x7c, 0xa3, 0x46, 0x53, 0x08, 0xea, 0x3c, 0xa0, 0x67, 0xb5, 0x99, 0x76, 0x46,
-	0xa2, 0x61, 0x0d, 0xe9, 0x1c, 0x39, 0xe8, 0x2d, 0xf8, 0x66, 0x3d, 0x50, 0x0b, 0x8d, 0x9e, 0xda,
-	0x53, 0x35, 0x1b, 0x84, 0x9d, 0xc9, 0x5f, 0x0f, 0xfc, 0xeb, 0x6a, 0x1d, 0xd1, 0x3b, 0xf0, 0x4d,
-	0xa0, 0x50, 0xd8, 0xdc, 0xcf, 0x76, 0xc6, 0xf6, 0x7c, 0x7a, 0x0a, 0x41, 0x9d, 0x25, 0xcb, 0x74,
-	0x3b, 0x5f, 0x7b, 0x94, 0x1f, 0xc0, 0x37, 0x01, 0xb0, 0xbe, 0xd8, 0x8a, 0x97, 0x65, 0x7f, 0x2b,
-	0x2d, 0xd8, 0x41, 0x77, 0xd0, 0xb7, 0xd7, 0x07, 0x9d, 0x1d, 0xd8, 0x2a, 0xfd, 0x9e, 0xe8, 0xf0,
-	0xce, 0x61, 0x07, 0x5d, 0x41, 0xdf, 0xbe, 0xf3, 0x9d, 0x43, 0x8c, 0x0e, 0xaf, 0x06, 0x76, 0x16,
-	0x8f, 0xd5, 0x1f, 0xee, 0xf2, 0x5f, 0x00, 0x00, 0x00, 0xff, 0xff, 0xbc, 0xf5, 0x82, 0x97, 0xf8,
-	0x04, 0x00, 0x00,
+	// 708 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x55, 0xcd, 0x6e, 0xd3, 0x4a,
+	0x14, 0x8e, 0x93, 0x26, 0xb1, 0x4f, 0x93, 0xfe, 0x4c, 0x7b, 0x2b, 0x5f, 0xdf, 0x56, 0xb7, 0x9a,
+	0xcd, 0xed, 0x15, 0x22, 0xa0, 0x94, 0x45, 0x55, 0x55, 0xa8, 0x10, 0x55, 0xfd, 0x11, 0x62, 0xe1,
+	0x4a, 0x6c, 0x40, 0x44, 0x4e, 0x3c, 0xa8, 0x2d, 0x8e, 0x27, 0x8c, 0xc7, 0x88, 0xbc, 0x02, 0x4b,
+	0x96, 0xec, 0x78, 0x23, 0x1e, 0x09, 0xcd, 0x8c, 0xc7, 0x1e, 0xdb, 0x0d, 0x20, 0xb1, 0x9b, 0xf3,
+	0x7f, 0xbe, 0xe3, 0xf3, 0x1d, 0xc3, 0xd6, 0x9c, 0x51, 0x4e, 0x1f, 0x4d, 0xa3, 0x34, 0x61, 0x69,
+	0x3c, 0x90, 0x12, 0xea, 0x66, 0x22, 0x7e, 0x0e, 0x1b, 0x17, 0x24, 0x60, 0x7c, 0x42, 0x02, 0xee,
+	0x93, 0x0f, 0x29, 0x49, 0x38, 0xf2, 0xc0, 0x8e, 0x69, 0x48, 0xe2, 0x60, 0x46, 0x5c, 0x6b, 0xdf,
+	0x3a, 0x70, 0xfc, 0x5c, 0x46, 0x08, 0x56, 0x6e, 0x68, 0xc2, 0xdd, 0xa6, 0xd4, 0xcb, 0x37, 0xee,
+	0x42, 0xfb, 0x6c, 0x36, 0xe7, 0x0b, 0x3c, 0x87, 0xfe, 0x39, 0xe1, 0x2f, 0x69, 0x48, 0x12, 0x9f,
+	0xcc, 0xa3, 0x05, 0xfa, 0x17, 0x56, 0x19, 0x09, 0xc2, 0xc5, 0x58, 0xc4, 0x27, 0xae, 0xb5, 0xdf,
+	0x3a, 0x70, 0x7c, 0x90, 0x2a, 0xe9, 0x25, 0x1c, 0x08, 0x63, 0x94, 0x65, 0x0e, 0x4d, 0xe5, 0x20,
+	0x55, 0xca, 0x61, 0x0f, 0x20, 0xa2, 0x09, 0xcf, 0xec, 0x2d, 0x69, 0x77, 0x84, 0x46, 0x9a, 0xf1,
+	0x18, 0xb6, 0xae, 0x79, 0xc0, 0xf8, 0x28, 0x4a, 0x93, 0x2b, 0x3a, 0xd1, 0x08, 0x5c, 0xe8, 0x4e,
+	0xe9, 0x6c, 0x16, 0xc4, 0x61, 0x06, 0x40, 0x8b, 0x68, 0x1b, 0xda, 0x66, 0x29, 0x25, 0x08, 0xff,
+	0x79, 0xc0, 0x39, 0x61, 0xb1, 0xdb, 0x52, 0xfe, 0x99, 0x88, 0xbf, 0x59, 0xb0, 0x59, 0xae, 0x20,
+	0x70, 0xfd, 0x05, 0x9d, 0x3b, 0x3a, 0x19, 0xdf, 0xaa, 0xf4, 0x7d, 0xbf, 0x7d, 0x47, 0x27, 0x97,
+	0xcb, 0x92, 0x23, 0x58, 0x11, 0x8f, 0x2c, 0xb3, 0x7c, 0xa3, 0x1d, 0xe8, 0x24, 0x3c, 0xa4, 0x29,
+	0x77, 0x57, 0xa4, 0x36, 0x93, 0x32, 0x3d, 0x61, 0xcc, 0x6d, 0xe7, 0x7a, 0xc2, 0x18, 0xfa, 0x07,
+	0x1c, 0xf2, 0xe9, 0x96, 0x8f, 0xa7, 0x22, 0x51, 0x67, 0xdf, 0x3a, 0xd8, 0xf4, 0x6d, 0xa1, 0x18,
+	0xd1, 0x90, 0xe0, 0x87, 0xb0, 0x3d, 0x0a, 0xe2, 0x29, 0x89, 0x2a, 0x53, 0x28, 0x77, 0xe9, 0x64,
+	0x5d, 0xe2, 0xb7, 0xb0, 0x2e, 0x11, 0x19, 0x9e, 0x1e, 0xd8, 0x37, 0x24, 0x08, 0x65, 0x9b, 0xd9,
+	0x17, 0xd7, 0xb2, 0x91, 0xa5, 0x69, 0x62, 0x35, 0x46, 0xdc, 0x2a, 0x8d, 0x18, 0xbf, 0x81, 0x7e,
+	0x91, 0x5f, 0x4c, 0xab, 0x00, 0x6b, 0x2d, 0x01, 0xdb, 0x5c, 0x0e, 0xb6, 0x55, 0x01, 0xfb, 0x1a,
+	0x36, 0x14, 0xd8, 0x3f, 0x6b, 0x7f, 0x1b, 0xda, 0xef, 0x28, 0x9b, 0xaa, 0xfc, 0xb6, 0xaf, 0x04,
+	0x7c, 0x09, 0xeb, 0xaf, 0x82, 0xe8, 0x36, 0x0c, 0x38, 0xf9, 0x9d, 0xdc, 0x1e, 0xd8, 0x82, 0x47,
+	0xd2, 0xa6, 0x20, 0xe4, 0x32, 0x7e, 0x00, 0xfd, 0x22, 0x95, 0x98, 0xc2, 0x4f, 0x58, 0x85, 0x0f,
+	0x61, 0xeb, 0x9a, 0xf0, 0x8b, 0x2c, 0x6f, 0xa2, 0x6b, 0xef, 0x82, 0xa3, 0x6b, 0x69, 0xf2, 0x14,
+	0x0a, 0xfc, 0x45, 0xac, 0x66, 0x29, 0x4a, 0x94, 0x79, 0x06, 0x5d, 0x46, 0x92, 0x34, 0xe2, 0x2a,
+	0x62, 0x75, 0xf8, 0xdf, 0x40, 0x53, 0xbf, 0xe6, 0x3c, 0xf0, 0x95, 0xe7, 0x59, 0xcc, 0xd9, 0xc2,
+	0xd7, 0x71, 0xde, 0x31, 0xf4, 0x4c, 0x03, 0xda, 0x80, 0xd6, 0x7b, 0xb2, 0xc8, 0x9a, 0x16, 0x4f,
+	0x31, 0xbd, 0x8f, 0x41, 0x94, 0x6a, 0xd4, 0x4a, 0x38, 0x6e, 0x1e, 0x59, 0xf8, 0xab, 0x05, 0x9b,
+	0xe7, 0xb5, 0xa6, 0xce, 0xab, 0x40, 0x56, 0x87, 0xff, 0xe7, 0x6d, 0xd5, 0xdc, 0x07, 0xb9, 0xa8,
+	0x1a, 0x2b, 0x62, 0xbd, 0x13, 0x58, 0x2b, 0x1b, 0x7f, 0xd5, 0x9c, 0x6d, 0x34, 0x37, 0xfc, 0xdc,
+	0x04, 0x5b, 0x87, 0xa3, 0x23, 0x70, 0xf2, 0xcb, 0x87, 0xfe, 0xce, 0xbb, 0xa9, 0x5e, 0x43, 0x6f,
+	0x2d, 0x37, 0xa9, 0x23, 0xd7, 0x40, 0x4f, 0xc0, 0xd6, 0x67, 0x0e, 0x55, 0xac, 0xde, 0x8e, 0x09,
+	0xab, 0xb8, 0x84, 0xb8, 0x81, 0x5e, 0x40, 0xcf, 0x3c, 0x24, 0x68, 0xb7, 0xf8, 0x2e, 0xf5, 0x0b,
+	0xe6, 0x79, 0x4b, 0xac, 0x32, 0xd7, 0x63, 0x0b, 0x9d, 0x42, 0xbf, 0xc4, 0x79, 0xb4, 0x97, 0x07,
+	0xdc, 0x77, 0x0b, 0xea, 0x28, 0x86, 0xdf, 0x9b, 0x60, 0x8f, 0xb2, 0x6d, 0x45, 0xa7, 0x60, 0x6b,
+	0xce, 0x22, 0xb7, 0x5c, 0xda, 0x48, 0xb2, 0x73, 0x8f, 0x45, 0x37, 0x74, 0x04, 0x4e, 0xce, 0x4b,
+	0x63, 0x9c, 0x55, 0xae, 0xde, 0x33, 0xce, 0xa7, 0x60, 0x6b, 0xa6, 0x18, 0xb5, 0x2b, 0x3c, 0x34,
+	0x6a, 0x97, 0x68, 0x85, 0x1b, 0xe8, 0x0a, 0x7a, 0xe6, 0x66, 0x9b, 0x83, 0xad, 0x73, 0xca, 0x1c,
+	0x6c, 0x75, 0xef, 0x70, 0x03, 0x9d, 0x40, 0xcf, 0x5c, 0xc7, 0xda, 0xe7, 0xf5, 0x96, 0x6f, 0x2d,
+	0x6e, 0x4c, 0x3a, 0xf2, 0xe7, 0x7a, 0xf8, 0x23, 0x00, 0x00, 0xff, 0xff, 0x04, 0x21, 0xeb, 0x23,
+	0x73, 0x07, 0x00, 0x00,
 }
 
 // Reference imports to suppress errors if they are not otherwise used.
@@ -523,6 +782,8 @@ const _ = grpc.SupportPackageIsVersion4
 type HeadnodeClient interface {
 	Heartbeat(ctx context.Context, in *HeartbeatRequest, opts ...grpc.CallOption) (*Empty, error)
 	GetNodes(ctx context.Context, in *Empty, opts ...grpc.CallOption) (*GetNodesReply, error)
+	StartClusJob(ctx context.Context, in *StartClusJobRequest, opts ...grpc.CallOption) (Headnode_StartClusJobClient, error)
+	CancelClusJob(ctx context.Context, in *CancelClusJobRequest, opts ...grpc.CallOption) (*Empty, error)
 }
 
 type headnodeClient struct {
@@ -551,10 +812,53 @@ func (c *headnodeClient) GetNodes(ctx context.Context, in *Empty, opts ...grpc.C
 	return out, nil
 }
 
+func (c *headnodeClient) StartClusJob(ctx context.Context, in *StartClusJobRequest, opts ...grpc.CallOption) (Headnode_StartClusJobClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Headnode_serviceDesc.Streams[0], "/clusrun.Headnode/StartClusJob", opts...)
+	if err != nil {
+		return nil, err
+	}
+	x := &headnodeStartClusJobClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Headnode_StartClusJobClient interface {
+	Recv() (*StartClusJobReply, error)
+	grpc.ClientStream
+}
+
+type headnodeStartClusJobClient struct {
+	grpc.ClientStream
+}
+
+func (x *headnodeStartClusJobClient) Recv() (*StartClusJobReply, error) {
+	m := new(StartClusJobReply)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
+}
+
+func (c *headnodeClient) CancelClusJob(ctx context.Context, in *CancelClusJobRequest, opts ...grpc.CallOption) (*Empty, error) {
+	out := new(Empty)
+	err := c.cc.Invoke(ctx, "/clusrun.Headnode/CancelClusJob", in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // HeadnodeServer is the server API for Headnode service.
 type HeadnodeServer interface {
 	Heartbeat(context.Context, *HeartbeatRequest) (*Empty, error)
 	GetNodes(context.Context, *Empty) (*GetNodesReply, error)
+	StartClusJob(*StartClusJobRequest, Headnode_StartClusJobServer) error
+	CancelClusJob(context.Context, *CancelClusJobRequest) (*Empty, error)
 }
 
 // UnimplementedHeadnodeServer can be embedded to have forward compatible implementations.
@@ -566,6 +870,12 @@ func (*UnimplementedHeadnodeServer) Heartbeat(ctx context.Context, req *Heartbea
 }
 func (*UnimplementedHeadnodeServer) GetNodes(ctx context.Context, req *Empty) (*GetNodesReply, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetNodes not implemented")
+}
+func (*UnimplementedHeadnodeServer) StartClusJob(req *StartClusJobRequest, srv Headnode_StartClusJobServer) error {
+	return status.Errorf(codes.Unimplemented, "method StartClusJob not implemented")
+}
+func (*UnimplementedHeadnodeServer) CancelClusJob(ctx context.Context, req *CancelClusJobRequest) (*Empty, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method CancelClusJob not implemented")
 }
 
 func RegisterHeadnodeServer(s *grpc.Server, srv HeadnodeServer) {
@@ -608,6 +918,45 @@ func _Headnode_GetNodes_Handler(srv interface{}, ctx context.Context, dec func(i
 	return interceptor(ctx, in, info, handler)
 }
 
+func _Headnode_StartClusJob_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(StartClusJobRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
+	}
+	return srv.(HeadnodeServer).StartClusJob(m, &headnodeStartClusJobServer{stream})
+}
+
+type Headnode_StartClusJobServer interface {
+	Send(*StartClusJobReply) error
+	grpc.ServerStream
+}
+
+type headnodeStartClusJobServer struct {
+	grpc.ServerStream
+}
+
+func (x *headnodeStartClusJobServer) Send(m *StartClusJobReply) error {
+	return x.ServerStream.SendMsg(m)
+}
+
+func _Headnode_CancelClusJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(CancelClusJobRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(HeadnodeServer).CancelClusJob(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: "/clusrun.Headnode/CancelClusJob",
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(HeadnodeServer).CancelClusJob(ctx, req.(*CancelClusJobRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 var _Headnode_serviceDesc = grpc.ServiceDesc{
 	ServiceName: "clusrun.Headnode",
 	HandlerType: (*HeadnodeServer)(nil),
@@ -620,8 +969,18 @@ var _Headnode_serviceDesc = grpc.ServiceDesc{
 			MethodName: "GetNodes",
 			Handler:    _Headnode_GetNodes_Handler,
 		},
+		{
+			MethodName: "CancelClusJob",
+			Handler:    _Headnode_CancelClusJob_Handler,
+		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StartClusJob",
+			Handler:       _Headnode_StartClusJob_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "proto/clusrun.proto",
 }
 
@@ -629,7 +988,7 @@ var _Headnode_serviceDesc = grpc.ServiceDesc{
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://godoc.org/google.golang.org/grpc#ClientConn.NewStream.
 type ClusnodeClient interface {
-	StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*Empty, error)
+	StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (Clusnode_StartJobClient, error)
 	CancelJob(ctx context.Context, in *CancelJobRequest, opts ...grpc.CallOption) (*Empty, error)
 	Validate(ctx context.Context, in *ValidateRequest, opts ...grpc.CallOption) (*ValidateReply, error)
 	SetHeadnodes(ctx context.Context, in *SetHeadnodesRequest, opts ...grpc.CallOption) (*SetHeadnodesReply, error)
@@ -644,13 +1003,36 @@ func NewClusnodeClient(cc *grpc.ClientConn) ClusnodeClient {
 	return &clusnodeClient{cc}
 }
 
-func (c *clusnodeClient) StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (*Empty, error) {
-	out := new(Empty)
-	err := c.cc.Invoke(ctx, "/clusrun.Clusnode/StartJob", in, out, opts...)
+func (c *clusnodeClient) StartJob(ctx context.Context, in *StartJobRequest, opts ...grpc.CallOption) (Clusnode_StartJobClient, error) {
+	stream, err := c.cc.NewStream(ctx, &_Clusnode_serviceDesc.Streams[0], "/clusrun.Clusnode/StartJob", opts...)
 	if err != nil {
 		return nil, err
 	}
-	return out, nil
+	x := &clusnodeStartJobClient{stream}
+	if err := x.ClientStream.SendMsg(in); err != nil {
+		return nil, err
+	}
+	if err := x.ClientStream.CloseSend(); err != nil {
+		return nil, err
+	}
+	return x, nil
+}
+
+type Clusnode_StartJobClient interface {
+	Recv() (*StartJobReply, error)
+	grpc.ClientStream
+}
+
+type clusnodeStartJobClient struct {
+	grpc.ClientStream
+}
+
+func (x *clusnodeStartJobClient) Recv() (*StartJobReply, error) {
+	m := new(StartJobReply)
+	if err := x.ClientStream.RecvMsg(m); err != nil {
+		return nil, err
+	}
+	return m, nil
 }
 
 func (c *clusnodeClient) CancelJob(ctx context.Context, in *CancelJobRequest, opts ...grpc.CallOption) (*Empty, error) {
@@ -691,7 +1073,7 @@ func (c *clusnodeClient) GetHeadnodes(ctx context.Context, in *Empty, opts ...gr
 
 // ClusnodeServer is the server API for Clusnode service.
 type ClusnodeServer interface {
-	StartJob(context.Context, *StartJobRequest) (*Empty, error)
+	StartJob(*StartJobRequest, Clusnode_StartJobServer) error
 	CancelJob(context.Context, *CancelJobRequest) (*Empty, error)
 	Validate(context.Context, *ValidateRequest) (*ValidateReply, error)
 	SetHeadnodes(context.Context, *SetHeadnodesRequest) (*SetHeadnodesReply, error)
@@ -702,8 +1084,8 @@ type ClusnodeServer interface {
 type UnimplementedClusnodeServer struct {
 }
 
-func (*UnimplementedClusnodeServer) StartJob(ctx context.Context, req *StartJobRequest) (*Empty, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method StartJob not implemented")
+func (*UnimplementedClusnodeServer) StartJob(req *StartJobRequest, srv Clusnode_StartJobServer) error {
+	return status.Errorf(codes.Unimplemented, "method StartJob not implemented")
 }
 func (*UnimplementedClusnodeServer) CancelJob(ctx context.Context, req *CancelJobRequest) (*Empty, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method CancelJob not implemented")
@@ -722,22 +1104,25 @@ func RegisterClusnodeServer(s *grpc.Server, srv ClusnodeServer) {
 	s.RegisterService(&_Clusnode_serviceDesc, srv)
 }
 
-func _Clusnode_StartJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(StartJobRequest)
-	if err := dec(in); err != nil {
-		return nil, err
+func _Clusnode_StartJob_Handler(srv interface{}, stream grpc.ServerStream) error {
+	m := new(StartJobRequest)
+	if err := stream.RecvMsg(m); err != nil {
+		return err
 	}
-	if interceptor == nil {
-		return srv.(ClusnodeServer).StartJob(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: "/clusrun.Clusnode/StartJob",
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ClusnodeServer).StartJob(ctx, req.(*StartJobRequest))
-	}
-	return interceptor(ctx, in, info, handler)
+	return srv.(ClusnodeServer).StartJob(m, &clusnodeStartJobServer{stream})
+}
+
+type Clusnode_StartJobServer interface {
+	Send(*StartJobReply) error
+	grpc.ServerStream
+}
+
+type clusnodeStartJobServer struct {
+	grpc.ServerStream
+}
+
+func (x *clusnodeStartJobServer) Send(m *StartJobReply) error {
+	return x.ServerStream.SendMsg(m)
 }
 
 func _Clusnode_CancelJob_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -817,10 +1202,6 @@ var _Clusnode_serviceDesc = grpc.ServiceDesc{
 	HandlerType: (*ClusnodeServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "StartJob",
-			Handler:    _Clusnode_StartJob_Handler,
-		},
-		{
 			MethodName: "CancelJob",
 			Handler:    _Clusnode_CancelJob_Handler,
 		},
@@ -837,6 +1218,12 @@ var _Clusnode_serviceDesc = grpc.ServiceDesc{
 			Handler:    _Clusnode_GetHeadnodes_Handler,
 		},
 	},
-	Streams:  []grpc.StreamDesc{},
+	Streams: []grpc.StreamDesc{
+		{
+			StreamName:    "StartJob",
+			Handler:       _Clusnode_StartJob_Handler,
+			ServerStreams: true,
+		},
+	},
 	Metadata: "proto/clusrun.proto",
 }

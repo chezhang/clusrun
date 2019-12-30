@@ -8,9 +8,8 @@ import (
 )
 
 const (
-	default_host    = "localhost"
 	default_port    = "50505"
-	default_node    = default_host + ":" + default_port
+	local_host      = "localhost:" + default_port
 	connect_timeout = 30 * time.Second
 )
 
@@ -38,9 +37,17 @@ Usage:
 	clus <command> [arguments]
 
 The commands are:
-	node            - list node status in the cluster
+	node            - list nodes in the cluster
 	run             - run a command or script on nodes of the cluster
-	job             - list job status in the cluster
+	job             - list jobs in the cluster
 
 `)
+}
+
+func ParseHeadnode(headnode string) string {
+	if strings.Contains(headnode, ":") {
+		return headnode
+	} else {
+		return headnode + ":" + default_port
+	}
 }

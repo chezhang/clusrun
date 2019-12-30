@@ -11,8 +11,8 @@ import (
 )
 
 func Node(args []string) {
-	fs := flag.NewFlagSet("node flag", flag.ExitOnError)
-	headnode := fs.String("headnode", default_node, "specify the headnode to connect")
+	fs := flag.NewFlagSet("clus node options", flag.ExitOnError)
+	headnode := fs.String("headnode", local_host, "specify the headnode to connect")
 	monitor := fs.Bool("monitor", false, "keep refreshing the node information")
 	fs.Parse(args)
 	if len(fs.Args()) > 0 {
@@ -20,7 +20,7 @@ func Node(args []string) {
 		return
 	}
 	if !*monitor {
-		ready_nodes, error_nodes, lost_nodes := GetNodes(*headnode)
+		ready_nodes, error_nodes, lost_nodes := GetNodes(ParseHeadnode(*headnode))
 		fmt.Printf("Ready nodes (%v): %v\nError nodes (%v): %v\nLost nodes (%v): %v",
 			len(ready_nodes), ready_nodes, len(error_nodes), error_nodes, len(lost_nodes), lost_nodes)
 	} else {

@@ -19,32 +19,68 @@ package clusrun;
 service Headnode {
   rpc Heartbeat (HeartbeatRequest) returns (Empty) {}
   rpc GetNodes (Empty) returns (GetNodesReply) {}
+  rpc StartClusJob (StartClusJobRequest) returns (stream StartClusJobReply) {}
+  rpc CancelClusJob (CancelClusJobRequest) returns (Empty) {}
 }
 
 service Clusnode {
-  rpc StartJob (StartJobRequest) returns (Empty) {}
-  rpc CancelJob (CancelJobRequest) returns (Empty) {}
+  rpc StartJob (StartJobRequest) returns (stream StartJobReply) {}
+  rpc CancelJob (CancelJobRequest) returns (Empty) {}                                                                                                                                                                                                                                                           
   rpc Validate (ValidateRequest) returns (ValidateReply) {}
   rpc SetHeadnodes(SetHeadnodesRequest) returns (SetHeadnodesReply) {}
   rpc GetHeadnodes(Empty) returns (GetHeadnodesReply) {}
 }
 
-message Empty {
-}
-
 message HeartbeatRequest {
-  string node = 1;
+  string nodename = 1;
   string host = 2;
 }
 
-message StartJobRequest {
+message Empty {
+}
+
+message GetNodesReply {
+  repeated string ready_nodes = 1;
+  repeated string error_nodes = 2;
+  repeated string lost_nodes = 3;
+}
+
+message StartClusJobRequest {
   string command = 1;
-  uint32 id = 2;
+  repeated string nodes = 2;
+  string pattern = 3;
+}
+
+message StartClusJobReply {
+  uint32 job_id = 1;
+  repeated string nodes = 2;
+  string node = 3;
+  string stdout = 4;
+  string stderr = 5;
+  sint32 exit_code = 6;
+}
+
+message CancelClusJobRequest {
+  string job_id = 1;
+}
+
+
+message StartJobRequest {
+  string headnode = 1;
+  uint32 job_id = 2;
+  string command = 3;
+}
+
+message StartJobReply {
+  string stdout = 1;
+  string stderr = 2;
+  sint32 exit_code = 3;
 }
 
 message CancelJobRequest {
-  uint32 id = 1;
-  bool force = 2;
+  string headnode = 1;
+  uint32 job_id = 2;
+  bool force = 3;
 }
 
 message ValidateRequest {
@@ -54,12 +90,6 @@ message ValidateRequest {
 
 message ValidateReply {
   string nodename = 1;
-}
-
-message GetNodesReply {
-  repeated string ready_nodes = 1;
-  repeated string error_nodes = 2;
-  repeated string lost_nodes = 3;
 }
 
 message SetHeadnodesRequest {

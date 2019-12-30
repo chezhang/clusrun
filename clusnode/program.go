@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
 	"syscall"
+	"time"
 
 	svc "github.com/judwhite/go-svc/svc"
 	grpc "google.golang.org/grpc"
@@ -19,6 +19,7 @@ type program struct {
 func (program) Init(env svc.Environment) error {
 	fmt.Println("Service is being initialized")
 	SetupFireWall()
+	InitDatabase()
 	fmt.Println("Service initialized")
 	return nil
 }
@@ -31,13 +32,18 @@ func (p *program) Start() error {
 
 func (p *program) Stop() error {
 	fmt.Println("Service is stopping")
+	go func() {
+		time.Sleep(10 * time.Second)
+		fmt.Println("Force stop service")
+		p.grpc_server.Stop()
+	}()
 	p.grpc_server.GracefulStop()
 	fmt.Println("Service stopped")
 	return nil
 }
 
 func (p *program) StartClusnode() {
-	_, port, err := ParseHostAddress(clusnode_hosting)
+	_, port, err := ParseHostAddress(clusnode_host)
 	if err != nil {
 		log.Fatalf("Failed to parse clusnode host address: %v", err)
 	}
@@ -48,11 +54,7 @@ func (p *program) StartClusnode() {
 	p.grpc_server = grpc.NewServer()
 	pb.RegisterClusnodeServer(p.grpc_server, &clusnode_server{})
 	pb.RegisterHeadnodeServer(p.grpc_server, &headnode_server{})
-	name, err := os.Hostname()
-	if err != nil {
-		name = default_nodename
-	}
-	log.Printf("Clusnode %v starts listening on %v", name, clusnode_hosting)
+	log.Printf("Clusnode %v starts listening on %v", clusnode_name, clusnode_host)
 	if err := p.grpc_server.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
