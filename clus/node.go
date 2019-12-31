@@ -7,7 +7,7 @@ import (
 
 	"google.golang.org/grpc"
 
-	pb "clusrun/proto"
+	pb "../protobuf"
 )
 
 func Node(args []string) {

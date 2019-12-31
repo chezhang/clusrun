@@ -1,7 +1,7 @@
 package main
 
 import (
-	pb "clusrun/proto"
+	pb "../protobuf"
 	"fmt"
 	"log"
 	"net"
