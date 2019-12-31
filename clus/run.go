@@ -143,6 +143,7 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 	if buffer_size < min_buffer_size {
 		buffer_size = min_buffer_size
 	}
+	truncate_msg := "(Truncated)\n..."
 	buffer := make(map[string][]rune, len(all_nodes))
 	for {
 		output, err := stream.Recv()
@@ -166,13 +167,8 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 				fmt.Printf("[%v/%v] Command %v on node %v\n\n", len(finished_nodes), len(all_nodes), state, node)
 			} else {
 				buffer[node] = append(buffer[node], []rune(content)...)
-				over_size := len(buffer[node]) - buffer_size
-				if over_size > 0 {
+				if over_size := len(buffer[node]) - buffer_size - len(truncate_msg); over_size > 0 {
 					buffer[node] = buffer[node][over_size:]
-					ellipsis := "..."
-					for i, c := range ellipsis {
-						buffer[node][i] = c
-					}
 				}
 				content = strings.TrimSpace(content)
 				if len(content) > 0 { // Print
@@ -192,8 +188,13 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 	}
 
 	// Summary
-	fmt.Println("-----------Summary-----------")
+	fmt.Println("\n-----------Summary-----------")
 	for node, output := range buffer {
+		if len(output) > buffer_size {
+			for i, c := range truncate_msg {
+				buffer[node][i] = c
+			}
+		}
 		fmt.Printf("[%v]:\n", node)
 		fmt.Println(string(output))
 		fmt.Println("-----------------------------")
