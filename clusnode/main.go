@@ -170,6 +170,10 @@ func ParseHostAddress(address string) (hostname string, port string, err error) 
 		return
 	} else {
 		hostname = strings.TrimSpace(segs[0])
+		if len(hostname) == 0 {
+			err = errors.New("Empty address")
+			return
+		}
 		if strings.ToLower(hostname) == "localhost" {
 			hostname = clusnode_name
 		}

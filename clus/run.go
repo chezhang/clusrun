@@ -9,13 +9,16 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
+	"os/signal"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 )
 
 const (
 	min_buffer_size = 30
+	line_length     = 60
 )
 
 func Run(args []string) {
@@ -25,7 +28,8 @@ func Run(args []string) {
 	dump := fs.Bool("dump", false, "save the output to file")
 	nodes := fs.String("nodes", "", "specify certain nodes to run the command")
 	pattern := fs.String("pattern", "", "specify nodes matching a certain regular expression pattern to run the command")
-	buffer := fs.Int("buffer", 1000, "Specify the size of buffer to store the output of command on each node")
+	buffer := fs.Int("buffer", 1000, "specify the size of buffer to store the output of command on each node")
+	meantime := fs.Int("meantime", 1, "specify the count of nodes, the output of which will be displayed in the meantime of command running")
 	fs.Parse(args)
 	command := strings.Join(fs.Args(), " ")
 	if len(*script) > 0 {
@@ -41,7 +45,7 @@ func Run(args []string) {
 	if *dump {
 		output_dir = CreateOutputDir()
 	}
-	RunJob(ParseHeadnode(*headnode), command, output_dir, *pattern, ParseNodes(*nodes), *buffer)
+	RunJob(ParseHeadnode(*headnode), command, output_dir, *pattern, ParseNodes(*nodes), *buffer, *meantime)
 }
 
 func DisplayRunUsage(fs *flag.FlagSet) {
@@ -87,14 +91,14 @@ func CreateOutputDir() string {
 	return output_dir
 }
 
-func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffer_size int) {
+func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffer_size, meantime int) {
 	// Setup connection
 	ctx, cancel := context.WithTimeout(context.Background(), connect_timeout)
 	defer cancel()
 	conn, err := grpc.DialContext(ctx, headnode, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		fmt.Println("Can not connect:", err)
-		fmt.Printf("Please ensure the headnode %v is started and accessible", headnode)
+		fmt.Printf("Please ensure the headnode %v is started and accessible.", headnode)
 		return
 	}
 	defer conn.Close()
@@ -108,13 +112,20 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 		fmt.Println("Failed to start job:", err)
 		return
 	}
-	var all_nodes []string
+	var finished_nodes, failed_nodes, all_nodes []string
+	var job_id uint32
 	if output, err := stream.Recv(); err != nil {
 		fmt.Println("Failed to start job:", err)
 		return
 	} else {
 		all_nodes = output.GetNodes()
-		fmt.Printf("Job %v started on %v nodes in cluster %v\n\n", output.GetJobId(), len(all_nodes), headnode)
+		job_id = output.GetJobId()
+		fmt.Printf("Job %v started on %v node(s) in cluster %v.\n", job_id, len(all_nodes), headnode)
+		fmt.Println()
+		fmt.Println(GetPaddingLine("---Command---"))
+		fmt.Println(command)
+		fmt.Println(GetPaddingLine(""))
+		fmt.Println()
 	}
 
 	// Create output file
@@ -130,7 +141,7 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 				f_stderr[node], err = os.Create(stderr)
 			}
 			if err != nil {
-				fmt.Printf("Failed to create output file: %v", err)
+				fmt.Printf("Failed to create output file: %v\n", err)
 				return
 			}
 			defer f_stdout[node].Close()
@@ -138,40 +149,63 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 		}
 	}
 
-	// Receive output
-	var finished_nodes, failed_nodes []string
+	// Pick nodes whose output will be displayed immediately
+	if meantime < 0 {
+		meantime = 0
+	} else if meantime > len(all_nodes) {
+		meantime = len(all_nodes)
+	}
+	immediate_nodes := make(map[string]bool, meantime)
+	for i := 0; i < meantime; i++ {
+		immediate_nodes[all_nodes[i]] = true
+	}
+
+	// Initialize output buffer
 	if buffer_size < min_buffer_size {
 		buffer_size = min_buffer_size
 	}
-	truncate_msg := "(Truncated)\n..."
 	buffer := make(map[string][]rune, len(all_nodes))
+
+	// Handle SIGINT
+	ch := make(chan os.Signal, 1)
+	signal.Notify(ch, os.Interrupt)
+	go func() {
+		<-ch
+		Summary(buffer, finished_nodes, failed_nodes, all_nodes, buffer_size)
+		if len(all_nodes) > len(finished_nodes) {
+			fmt.Printf("Job %v (%v/%v) is still running.", job_id, len(finished_nodes), len(all_nodes))
+		}
+		os.Exit(0)
+	}()
+
+	// Receive output
 	for {
 		output, err := stream.Recv()
 		if err == io.EOF {
 			break
 		}
 		if err != nil {
-			fmt.Println("Failed to receive output")
+			fmt.Println("Failed to receive output.")
 			time.Sleep(time.Second)
 		} else {
 			node := output.GetNode()
 			stdout, stderr := output.GetStdout(), output.GetStderr()
 			content := stdout + stderr
 			if len(content) == 0 { // EOF
-				state := "Finished"
+				state := "finished"
 				finished_nodes = append(finished_nodes, node)
 				if output.GetExitCode() != 0 {
-					state = "Failed"
+					state = "failed"
 					failed_nodes = append(failed_nodes, node)
 				}
-				fmt.Printf("[%v/%v] Command %v on node %v\n\n", len(finished_nodes), len(all_nodes), state, node)
+				fmt.Printf("[%v/%v] Command %v on node %v.\n", len(finished_nodes), len(all_nodes), state, node)
 			} else {
-				buffer[node] = append(buffer[node], []rune(content)...)
-				if over_size := len(buffer[node]) - buffer_size - len(truncate_msg); over_size > 0 {
+				buffer[node] = append(buffer[node], []rune(content)...) // Buffer output
+				if over_size := len(buffer[node]) - buffer_size - 1; over_size > 0 {
 					buffer[node] = buffer[node][over_size:]
 				}
 				content = strings.TrimSpace(content)
-				if len(content) > 0 { // Print
+				if _, ok := immediate_nodes[node]; ok && len(content) > 0 { // Print immediately
 					fmt.Printf("[%v]: %v\n", node, content)
 				}
 			}
@@ -186,23 +220,38 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 			}
 		}
 	}
+	Summary(buffer, finished_nodes, failed_nodes, all_nodes, buffer_size)
+}
 
-	// Summary
-	fmt.Println("\n-----------Summary-----------")
-	for node, output := range buffer {
-		if len(output) > buffer_size {
-			for i, c := range truncate_msg {
-				buffer[node][i] = c
-			}
+func Summary(buffer map[string][]rune, finished_nodes, failed_nodes, all_nodes []string, buffer_size int) {
+	fmt.Println()
+	nodes := []string{}
+	for node := range buffer {
+		nodes = append(nodes, node)
+	}
+	sort.Strings(nodes)
+	for _, node := range nodes {
+		output := buffer[node]
+		heading := fmt.Sprintf("---[%v]---", node)
+		fmt.Println(GetPaddingLine(heading))
+		if over_size := len(output) - buffer_size; over_size > 0 {
+			output = output[over_size:]
+			fmt.Printf("(Truncated)\n...")
 		}
-		fmt.Printf("[%v]:\n", node)
 		fmt.Println(string(output))
-		fmt.Println("-----------------------------")
 	}
+	fmt.Println(GetPaddingLine(""))
+	fmt.Printf("%v of %v node(s) succeeded.\n", len(finished_nodes)-len(failed_nodes), len(all_nodes))
 	if len(failed_nodes) > 0 {
-		fmt.Printf("Failed nodes (%v/%v): %v", len(failed_nodes), len(all_nodes), failed_nodes)
+		sort.Strings(failed_nodes)
+		fmt.Printf("Failed node(s) (%v/%v): %v\n", len(failed_nodes), len(all_nodes), strings.Join(failed_nodes, ", "))
 	}
-	if lost_nodes := len(all_nodes) - len(finished_nodes); lost_nodes > 0 {
-		fmt.Printf("Lost %v nodes", lost_nodes)
+}
+
+func GetPaddingLine(heading string) string {
+	if padding_length := line_length - len(heading); padding_length > 0 {
+		padding := strings.Repeat("-", padding_length/2)
+		heading = fmt.Sprintf("%v%v%v", padding, heading, padding)
 	}
+	return heading
 }
