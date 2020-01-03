@@ -9,6 +9,8 @@ import (
 	"github.com/judwhite/go-svc/svc"
 	"google.golang.org/grpc"
 	"log"
+	"net/http"
+	_ "net/http/pprof"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -85,7 +87,15 @@ func Start(args []string) {
 	host := fs.String("host", local_host, "specify the host address of this clusnode")
 	log_file := fs.String("log-file", default_log_file_label, "specify the file for logging")
 	config_file := fs.String("config-file", default_config_file, "specify the config file for saving and loading settings")
+	pprof := fs.Bool("pprof", false, "start HTTP server (8080) for pprof")
 	fs.Parse(args)
+
+	// Start HTTP server for pprof
+	if *pprof {
+		go func() {
+			http.ListenAndServe("0.0.0.0:8080", nil)
+		}()
+	}
 
 	// Setup log file
 	if *log_file == default_log_file_label {
