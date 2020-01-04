@@ -38,8 +38,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("Failed to get hostname: %v", err)
 	}
-	clusnode_name = hostname
-	local_host = hostname + ":" + default_port
+	clusnode_name = strings.ToUpper(hostname)
+	local_host = clusnode_name + ":" + default_port
 
 	cmd, args := os.Args[1], os.Args[2:]
 	switch strings.ToLower(cmd) {
@@ -119,11 +119,10 @@ func Start(args []string) {
 	clusnode_config_file = *config_file
 
 	// Setup the host address of this clusnode
-	hostname, port, err := ParseHostAddress(*host)
+	_, _, clusnode_host, err = ParseHostAddress(*host)
 	if err != nil {
 		log.Fatalf("Failed to parse clusnode host address: %v", err)
 	}
-	clusnode_host = hostname + ":" + port
 
 	// Setup the headnodes this clusnode will report to
 	if reflect.Indirect(reflect.ValueOf(fs)).FieldByName("actual").MapIndex(reflect.ValueOf("headnodes")).IsValid() { // if "headnodes" flag is set
@@ -173,19 +172,19 @@ func Set(args []string) {
 	}
 }
 
-func ParseHostAddress(address string) (hostname string, port string, err error) {
+func ParseHostAddress(address string) (hostname, port, host string, err error) {
 	segs := strings.Split(address, ":")
 	if len(segs) > 2 {
 		err = errors.New("Incorrect host address: " + address)
 		return
 	} else {
-		hostname = strings.TrimSpace(segs[0])
+		hostname = strings.ToUpper(strings.TrimSpace(segs[0]))
 		if len(hostname) == 0 {
 			err = errors.New("Empty address")
 			return
 		}
-		if strings.ToLower(hostname) == "localhost" {
-			hostname = clusnode_name
+		if hostname == "LOCALHOST" {
+			hostname = strings.ToUpper(clusnode_name)
 		}
 		if len(segs) == 2 {
 			temp_port, temp_err := strconv.ParseUint(segs[1], 10, 16)
@@ -198,6 +197,7 @@ func ParseHostAddress(address string) (hostname string, port string, err error) 
 			port = default_port
 		}
 	}
+	host = hostname + ":" + port
 	return
 }
 
@@ -229,9 +229,9 @@ func GetHeadnodes() {
 				f = append(f, k)
 			}
 		}
-		fmt.Printf("%v is reporting to headnodes: %v\n", clusnode_name, t)
+		fmt.Printf("%v is connected to headnodes: %v\n", clusnode_name, t)
 		if len(f) > 0 {
-			fmt.Printf("%v failed to report to headnodes: %v\n", clusnode_name, f)
+			fmt.Printf("%v is trying to connect to headnodes: %v\n", clusnode_name, f)
 		}
 	}
 }
@@ -258,7 +258,7 @@ func SetHeadnodes(headnodes []string) {
 	} else {
 		fmt.Println("Result:")
 		for k, v := range reply.GetResults() {
-			fmt.Printf("\t%v : %v", k, v)
+			fmt.Printf("\t[%v]: \t%v\n", k, v)
 		}
 	}
 }

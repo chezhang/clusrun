@@ -43,7 +43,7 @@ func (p *program) Stop() error {
 }
 
 func (p *program) StartClusnode() {
-	_, port, err := ParseHostAddress(clusnode_host)
+	_, port, _, err := ParseHostAddress(clusnode_host)
 	if err != nil {
 		log.Fatalf("Failed to parse clusnode host address: %v", err)
 	}

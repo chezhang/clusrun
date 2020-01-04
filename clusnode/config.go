@@ -61,7 +61,9 @@ func SaveHeadnodes() {
 	}
 	headnodes := []string{}
 	headnodes_reporting.Range(func(key, val interface{}) bool {
-		headnodes = append(headnodes, key.(string))
+		if !val.(*heartbeat_state).Stopped {
+			headnodes = append(headnodes, key.(string))
+		}
 		return true
 	})
 	config[clusnode_host].(map[string]interface{})["headnodes"] = headnodes

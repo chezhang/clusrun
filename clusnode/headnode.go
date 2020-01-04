@@ -37,11 +37,12 @@ func (s *headnode_server) Heartbeat(ctx context.Context, in *pb.HeartbeatRequest
 		log.Printf("Invalid nodename in heartbeat: %v", nodename)
 		return &pb.Empty{}, errors.New("Invalid nodename: " + nodename)
 	}
-	hostname, port, err := ParseHostAddress(host)
+	hostname, port, host, err := ParseHostAddress(host)
 	if err != nil {
 		log.Printf("Invalid host format in heartbeat: %v", host)
 		return &pb.Empty{}, errors.New("Invalid host format: " + host)
 	}
+	nodename = strings.ToUpper(nodename)
 	var display_name string
 	if hostname == nodename && port == default_port {
 		display_name = nodename
@@ -152,7 +153,7 @@ func Validate(display_name, nodename, host string) {
 		defer cancel()
 
 		reply, err := c.Validate(ctx, &pb.ValidateRequest{Headnode: clusnode_host, Clusnode: host})
-		name := reply.GetNodename()
+		name := strings.ToUpper(reply.GetNodename())
 		if err != nil {
 			log.Printf("Validation failed: %v", err)
 			validate_number.Store(display_name, number+1)
@@ -187,7 +188,7 @@ func GetValidNodes(nodes []string, pattern string) ([]string, []string) {
 		valid_nodes = []string{}
 		added := map[string]bool{}
 		for _, node := range nodes {
-			if valid_node, ok := ready_nodes[node]; ok {
+			if valid_node, ok := ready_nodes[strings.ToUpper(node)]; ok {
 				if _, ok := added[valid_node]; !ok {
 					valid_nodes = append(valid_nodes, valid_node)
 					added[valid_node] = true
