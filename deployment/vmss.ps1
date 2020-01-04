@@ -16,15 +16,15 @@ $extensions = (Get-AzVmss -ResourceGroupName $resourceGroup -VMScaleSetName $vms
 "Current extensions:"
 $extensions
 
-$clusrun = $extensions | ? {$_.Name -eq $vmssExtensionName} 
+$clusrun = $extensions | Where-Object {$_.Name -eq $vmssExtensionName} 
 if($clusrun) {
     $reinstallParameter = "-reinstall"
     $clusrun.StatusesSummary | Format-Table
     
     "Uninstalling extension $vmssExtensionName ..."
     Remove-AzVmssExtension -VirtualMachineScaleSet $vmss -Name $vmssExtensionName | Out-Null
-    Update-AzVmss -ResourceGroupName $resourceGroup -Name $vmssName -VirtualMachineScaleSet $vmss | Out-Null
-    Update-AzVmssInstance -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName -InstanceId "*" | Out-Null
+    Update-AzVmss -ResourceGroupName $resourceGroup -Name $vmssName -VirtualMachineScaleSet $vmss 2>&1 | Out-Null
+    Update-AzVmssInstance -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName -InstanceId "*" 2>&1 | Out-Null
     
     "Current extensions:"
     (Get-AzVmss -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName -InstanceView).Extensions | Format-Table
@@ -34,7 +34,7 @@ if($clusrun) {
 
 $installClusrun = @{
   "fileUris" = (,"https://github.com/chezhang/clusrun/releases/download/0.1.0/setup.ps1");
-  "commandToExecute" = "powershell -ExecutionPolicy Unrestricted -File setup.ps1 $reinstallParameter -headnodes `"$headnodes`""
+  "commandToExecute" = "powershell -ExecutionPolicy Unrestricted -File setup.ps1 $reinstallParameter -headnodes `"$headnodes`" >`"%cd%\clusrun.setup.log`" 2>&1"
 }
 
 $vmss = Add-AzVmssExtension `
@@ -44,11 +44,11 @@ $vmss = Add-AzVmssExtension `
   -Type "CustomScriptExtension" `
   -TypeHandlerVersion 1.9 `
   -Setting $installClusrun
-Update-AzVmss -ResourceGroupName $resourceGroup -Name $vmssName -VirtualMachineScaleSet $vmss | Out-Null
-Update-AzVmssInstance -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName -InstanceId "*" | Out-Null
+Update-AzVmss -ResourceGroupName $resourceGroup -Name $vmssName -VirtualMachineScaleSet $vmss 2>&1 | Out-Null
+Update-AzVmssInstance -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName -InstanceId "*" 2>&1 | Out-Null
 
 "Current extensions:"
 $extensions = (Get-AzVmss -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName -InstanceView).Extensions
 $extensions | Format-Table
-$clusrun = $extensions | ? {$_.Name -eq $vmssExtensionName} 
+$clusrun = $extensions | Where-Object {$_.Name -eq $vmssExtensionName} 
 $clusrun.StatusesSummary | Format-Table

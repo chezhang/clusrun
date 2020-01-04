@@ -8,29 +8,29 @@ Param(
     [switch] $uninstall = $false
 )
 
-$download_location = "https://github.com/chezhang/clusrun/releases/download/0.1.0"
-[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+$setup_url = "https://github.com/chezhang/clusrun/releases/download/0.1.0/setup.zip"
+$setup_file = "$pwd\clusrun.setup.zip"
 
 if($uninstall -or $reinstall) {
-    $uninstallScript = "$installDir\uninstall.bat"
-    if(![System.IO.File]::Exists($uninstallScript)) {
-        (New-Object System.Net.WebClient).DownloadFile("$download_location/uninstall.bat", "$uninstallScript")
-    }
-    cd $installDir
+    Set-Location $installDir
     .\uninstall.bat
     if($uninstall) {
         return
     }
 }
 
+[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+for ($i = 0; $i -le 10; $i++) {
+    (New-Object System.Net.WebClient).DownloadFile($setup_url, $setup_file)
+    if([System.IO.File]::Exists($setup_file)) { break } else { Start-Sleep $(Get-Random -Maximum 5) }
+}
+
 $ErrorActionPreference = "Stop"
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+[System.IO.Compression.ZipFile]::ExtractToDirectory($setup_file, $installDir)
+Remove-Item $setup_file
 
-New-Item -ItemType Directory -Force $installDir
-(New-Object System.Net.WebClient).DownloadFile("$download_location/clusnode.exe", "$installDir\clusnode.exe")
-(New-Object System.Net.WebClient).DownloadFile("$download_location/install.bat", "$installDir\install.bat")
-(New-Object System.Net.WebClient).DownloadFile("$download_location/uninstall.bat", "$installDir\uninstall.bat")
-
-cd $installDir
+Set-Location $installDir
 .\install.bat
-rm install.bat
+Remove-Item install.bat
 .\clusnode.exe set -headnodes "$headnodes"
