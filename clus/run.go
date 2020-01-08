@@ -8,6 +8,7 @@ import (
 	"google.golang.org/grpc"
 	"io"
 	"io/ioutil"
+	"math"
 	"os"
 	"os/signal"
 	"path/filepath"
@@ -114,6 +115,8 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 	}
 	var finished_nodes, failed_nodes, all_nodes []string
 	var job_id uint32
+	start_time := time.Now()
+	job_time := make([]time.Duration, 0, len(all_nodes))
 	if output, err := stream.Recv(); err != nil {
 		fmt.Println("Failed to start job:", err)
 		return
@@ -171,9 +174,9 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 	signal.Notify(ch, os.Interrupt)
 	go func() {
 		<-ch
-		Summary(buffer, finished_nodes, failed_nodes, all_nodes, buffer_size)
+		Summary(buffer, finished_nodes, failed_nodes, all_nodes, buffer_size, job_time)
 		if len(all_nodes) > len(finished_nodes) {
-			fmt.Printf("Job %v (%v/%v) is still running.", job_id, len(finished_nodes), len(all_nodes))
+			fmt.Printf("Job %v is still running.\n", job_id)
 		}
 		os.Exit(0)
 	}()
@@ -198,7 +201,9 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 					state = "failed"
 					failed_nodes = append(failed_nodes, node)
 				}
-				fmt.Printf("[%v/%v] Command %v on node %v.\n", len(finished_nodes), len(all_nodes), state, node)
+				duration := time.Now().Sub(start_time)
+				job_time = append(job_time, duration)
+				fmt.Printf("[%v/%v] Command %v on node %v in %v.\n", len(finished_nodes), len(all_nodes), state, node, duration)
 			} else {
 				buffer[node] = append(buffer[node], []rune(content)...) // Buffer output
 				if over_size := len(buffer[node]) - buffer_size - 1; over_size > 0 {
@@ -214,18 +219,18 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 					_, err = f_stderr[node].WriteString(stderr)
 				}
 				if err != nil {
-					fmt.Printf("Failed to write file: %v", err)
+					fmt.Printf("Failed to write file: %v\n", err)
 					return
 				}
 			}
 		}
 	}
-	Summary(buffer, finished_nodes, failed_nodes, all_nodes, buffer_size)
+	Summary(buffer, finished_nodes, failed_nodes, all_nodes, buffer_size, job_time)
 }
 
-func Summary(buffer map[string][]rune, finished_nodes, failed_nodes, all_nodes []string, buffer_size int) {
+func Summary(buffer map[string][]rune, finished_nodes, failed_nodes, all_nodes []string, buffer_size int, job_time []time.Duration) {
 	fmt.Println()
-	nodes := []string{}
+	nodes := make([]string, 0, len(buffer))
 	for node := range buffer {
 		nodes = append(nodes, node)
 	}
@@ -240,7 +245,9 @@ func Summary(buffer map[string][]rune, finished_nodes, failed_nodes, all_nodes [
 		}
 		fmt.Println(string(output))
 	}
+	min, max, mean, mid, std_dev := GetTimeStat(job_time)
 	fmt.Println(GetPaddingLine(""))
+	fmt.Printf("Runtime: Min=%v, Max=%v, Mean=%v, Mid=%v, SD=%v\n", min, max, mean, mid, std_dev)
 	fmt.Printf("%v of %v node(s) succeeded.\n", len(finished_nodes)-len(failed_nodes), len(all_nodes))
 	if len(failed_nodes) > 0 {
 		sort.Strings(failed_nodes)
@@ -254,4 +261,28 @@ func GetPaddingLine(heading string) string {
 		heading = fmt.Sprintf("%v%v%v", padding, heading, padding)
 	}
 	return heading
+}
+
+func GetTimeStat(data []time.Duration) (min, max, mean, mid, std_dev time.Duration) {
+	n := len(data)
+	if n == 0 {
+		return
+	}
+	sort.Slice(data, func(i, j int) bool { return data[i] < data[j] })
+	min, max, mid = data[0], data[n-1], data[n/2]
+	if n%2 == 0 {
+		mid = (mid + data[n/2-1]) / 2
+	}
+	var sum int64
+	for _, i := range data {
+		sum += i.Nanoseconds()
+	}
+	temp_mean := float64(sum) / float64(n)
+	mean = time.Duration(temp_mean)
+	var sum_squares float64
+	for _, i := range data {
+		sum_squares += math.Pow(temp_mean-float64(i), 2)
+	}
+	std_dev = time.Duration(math.Sqrt(sum_squares / float64(n)))
+	return
 }
