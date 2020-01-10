@@ -13,6 +13,7 @@ import (
 func Node(args []string) {
 	fs := flag.NewFlagSet("clus node options", flag.ExitOnError)
 	headnode := fs.String("headnode", local_host, "specify the headnode to connect")
+	pattern := fs.String("pattern", "", "get nodes matching a certain regular expression pattern")
 	monitor := fs.Bool("monitor", false, "keep refreshing the node information")
 	group_by_state := fs.Bool("state", false, "group the nodes by node state")
 	// group_by_group := fs.Bool("group", false, "group the nodes by node group")
@@ -22,8 +23,20 @@ func Node(args []string) {
 		return
 	}
 	if !*monitor {
-		ready_nodes, error_nodes, lost_nodes := GetNodes(ParseHeadnode(*headnode))
+		nodes := GetNodes(ParseHeadnode(*headnode), *pattern)
 		if *group_by_state {
+			ready_nodes, error_nodes, lost_nodes := []string{}, []string{}, []string{}
+			for i := range nodes {
+				name := nodes[i].Name
+				switch nodes[i].State {
+				case pb.NodeState_Ready:
+					ready_nodes = append(ready_nodes, name)
+				case pb.NodeState_Error:
+					error_nodes = append(error_nodes, name)
+				case pb.NodeState_Lost:
+					lost_nodes = append(lost_nodes, name)
+				}
+			}
 			PrintNodes(ready_nodes, "Ready nodes")
 			PrintNodes(error_nodes, "Error nodes")
 			PrintNodes(lost_nodes, "Lost nodes")
@@ -32,20 +45,10 @@ func Node(args []string) {
 			fmt.Println("Error nodes count:", len(error_nodes))
 			fmt.Println("Lost nodes count:", len(lost_nodes))
 		} else {
-			nodes := [][2]string{}
-			for i := range ready_nodes {
-				nodes = append(nodes, [2]string{ready_nodes[i], "Ready"})
-			}
-			for i := range error_nodes {
-				nodes = append(nodes, [2]string{error_nodes[i], "Error"})
-			}
-			for i := range lost_nodes {
-				nodes = append(nodes, [2]string{lost_nodes[i], "Lost"})
-			}
-			sort.Slice(nodes, func(i, j int) bool { return strings.Compare(nodes[i][0], nodes[j][0]) < 0 })
+			sort.Slice(nodes, func(i, j int) bool { return strings.Compare(nodes[i].Name, nodes[j].Name) < 0 })
 			max_name_length := 0
 			for i := range nodes {
-				if length := len(nodes[i][0]); length > max_name_length {
+				if length := len(nodes[i].Name); length > max_name_length {
 					max_name_length = length
 				}
 			}
@@ -54,7 +57,7 @@ func Node(args []string) {
 			fmt.Printf("%-*s%-*s\n", name_width, "Node", state_width, "State")
 			fmt.Printf("%-*s%-*s\n", name_width, strings.Repeat("-", max_name_length), state_width, strings.Repeat("-", max_state_length))
 			for i := range nodes {
-				fmt.Printf("%-*s%-*s\n", name_width, nodes[i][0], state_width, nodes[i][1])
+				fmt.Printf("%-*s%-*s\n", name_width, nodes[i].Name, state_width, nodes[i].State)
 			}
 			fmt.Println(strings.Repeat("-", name_width+max_state_length))
 			fmt.Println("Node count:", len(nodes))
@@ -64,7 +67,7 @@ func Node(args []string) {
 	}
 }
 
-func GetNodes(headnode string) (ready_nodes []string, error_nodes []string, lost_nodes []string) {
+func GetNodes(headnode, pattern string) (nodes []*pb.GetNodesReply_Node) {
 	// Setup connection
 	ctx, cancel := context.WithTimeout(context.Background(), connect_timeout)
 	defer cancel()
@@ -80,11 +83,11 @@ func GetNodes(headnode string) (ready_nodes []string, error_nodes []string, lost
 	defer cancel()
 
 	// Get nodes reporting to the headnode
-	reply, err := c.GetNodes(ctx, &pb.Empty{})
+	reply, err := c.GetNodes(ctx, &pb.GetNodesRequest{Pattern: pattern})
 	if err != nil {
 		fmt.Println("Could not get nodes:", err)
 	}
-	return reply.GetReadyNodes(), reply.GetErrorNodes(), reply.GetLostNodes()
+	return reply.GetNodes()
 }
 
 func PrintNodes(nodes []string, name string) {

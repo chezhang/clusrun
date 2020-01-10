@@ -22,6 +22,7 @@ const (
 )
 
 var (
+	// TODO: use a sync.Map from node to id and 2 arrays instead, only lock when appending
 	reported_time   sync.Map
 	validate_number sync.Map
 )
@@ -60,27 +61,31 @@ func (s *headnode_server) Heartbeat(ctx context.Context, in *pb.HeartbeatRequest
 	return &pb.Empty{}, nil
 }
 
-func (s *headnode_server) GetNodes(ctx context.Context, in *pb.Empty) (*pb.GetNodesReply, error) {
+func (s *headnode_server) GetNodes(ctx context.Context, in *pb.GetNodesRequest) (*pb.GetNodesReply, error) {
 	defer LogPanic()
-	ready_nodes := []string{}
-	error_nodes := []string{}
-	lost_nodes := []string{}
+	pattern := in.GetPattern()
+	nodes := []*pb.GetNodesReply_Node{}
 	reported_time.Range(func(key interface{}, val interface{}) bool {
-		node := key.(string)
+		nodename := key.(string)
+		if matched, _ := regexp.MatchString(pattern, nodename); !matched {
+			return true
+		}
 		last_report := val.(time.Time)
+		node := pb.GetNodesReply_Node{Name: nodename}
 		if time.Since(last_report) > heartbeat_expire_time {
-			lost_nodes = append(lost_nodes, node)
+			node.State = pb.NodeState_Lost
 		} else {
-			if number, ok := validate_number.Load(node); ok && number.(int) < 0 {
-				ready_nodes = append(ready_nodes, node)
+			if number, ok := validate_number.Load(nodename); ok && number.(int) < 0 {
+				node.State = pb.NodeState_Ready
 			} else {
-				error_nodes = append(error_nodes, node)
+				node.State = pb.NodeState_Error
 			}
 		}
+		nodes = append(nodes, &node)
 		return true
 	})
-	log.Printf("GetNodes result:\nReadyNodes: %v\nErrorNodes: %v\nLostNodes: %v", ready_nodes, error_nodes, lost_nodes)
-	return &pb.GetNodesReply{ReadyNodes: ready_nodes, ErrorNodes: error_nodes, LostNodes: lost_nodes}, nil
+	log.Printf("GetNodes result:\n%v", nodes)
+	return &pb.GetNodesReply{Nodes: nodes}, nil
 }
 
 func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headnode_StartClusJobServer) error {

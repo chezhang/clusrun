@@ -18,7 +18,9 @@ package clusrun;
 
 service Headnode {
   rpc Heartbeat (HeartbeatRequest) returns (Empty) {}
-  rpc GetNodes (Empty) returns (GetNodesReply) {}
+  rpc GetNodes (GetNodesRequest) returns (GetNodesReply) {}
+  rpc GetJobs (GetJobsRequest) returns (GetJobsReply) {}
+  rpc GetOutput (GetOutputRequest) returns (stream GetOutputReply) {}
   rpc StartClusJob (StartClusJobRequest) returns (stream StartClusJobReply) {}
   rpc CancelClusJob (CancelClusJobRequest) returns (Empty) {}
 }
@@ -39,16 +41,61 @@ message HeartbeatRequest {
 message Empty {
 }
 
+enum NodeState {
+  Unknown = 0;
+  Ready = 1;
+  Error = 2;
+  Lost = 3;
+}
+
+message GetNodesRequest {
+  string pattern = 1;
+  repeated string groups = 2;
+  NodeState state = 3;
+}
+
 message GetNodesReply {
-  repeated string ready_nodes = 1;
-  repeated string error_nodes = 2;
-  repeated string lost_nodes = 3;
+  message Node {
+    string name = 1;
+    NodeState state = 2;
+    repeated uint32 jobs = 3;
+    repeated string groups = 4;
+  }
+  repeated Node nodes = 1;
+}
+
+message GetJobsRequest {
+  string job_id = 1;
+}
+
+message GetJobsReply {
+  message Job {
+    uint32 job_id = 1;
+    string command = 2;
+    repeated string nodes = 3;
+    int64 start_time = 4;
+    int64 end_time = 5;
+    bool output = 6;
+  }
+  repeated Job jobs = 1;
+}
+
+message GetOutputRequest {
+  string job_id = 1;
+  string node = 2;
+}
+
+message GetOutputReply {
+  string node = 1;
+  string stdout = 2;
+  string stderr = 3;
 }
 
 message StartClusJobRequest {
   string command = 1;
   repeated string nodes = 2;
   string pattern = 3;
+  string group = 4;
 }
 
 message StartClusJobReply {

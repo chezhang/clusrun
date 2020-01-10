@@ -30,6 +30,8 @@ func Run(args []string) {
 	pattern := fs.String("pattern", "", "specify nodes matching a certain regular expression pattern to run the command")
 	buffer := fs.Int("buffer", 1000, "specify the size of buffer to store the output of command on each node")
 	meantime := fs.Int("meantime", 1, "specify the count of nodes, the output of which will be displayed in the meantime of command running")
+	// pick := fs.Int("pick", 0, "Pick certain count of nodes to run, default 0 means pick all nodes")
+	// merge := fs.Bool("merge", false, "specify if merge outputs with the same content for different nodes")
 	fs.Parse(args)
 	command := strings.Join(fs.Args(), " ")
 	if len(*script) > 0 {
