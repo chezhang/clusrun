@@ -19,7 +19,6 @@ import (
 
 const (
 	min_buffer_size = 30
-	line_length     = 60
 )
 
 func Run(args []string) {
@@ -35,7 +34,7 @@ func Run(args []string) {
 	command := strings.Join(fs.Args(), " ")
 	if len(*script) > 0 {
 		if len(command) > 0 {
-			fmt.Printf("[Warning]: The command '%v' will be overwritten by scirpt %v\n", command, *script)
+			fmt.Printf("[Warning] The command '%v' will be overwritten by scirpt %v\n", command, *script)
 		}
 		command = ParseScript(*script)
 	} else if len(command) == 0 {
@@ -205,8 +204,10 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 				job_time = append(job_time, duration)
 				fmt.Printf("[%v/%v] Command %v on node %v in %v.\n", len(finished_nodes), len(all_nodes), state, node, duration)
 			} else {
+				// TODO: Consider changing the stdout/stderr type in stream from string to []rune to improve performance
 				buffer[node] = append(buffer[node], []rune(content)...) // Buffer output
-				if over_size := len(buffer[node]) - buffer_size - 1; over_size > 0 {
+				// Use []rune instead of string/[]byte to prevent an unicode character from being splited when truncating the buffer
+				if over_size := len(buffer[node]) - (buffer_size + 1); over_size > 0 {
 					buffer[node] = buffer[node][over_size:]
 				}
 				content = strings.TrimSpace(content)
@@ -247,20 +248,13 @@ func Summary(buffer map[string][]rune, finished_nodes, failed_nodes, all_nodes [
 	}
 	min, max, mean, mid, std_dev := GetTimeStat(job_time)
 	fmt.Println(GetPaddingLine(""))
+	// TODO: Limit/Fix the width of the time duration numbers
 	fmt.Printf("Runtime: Min=%v, Max=%v, Mean=%v, Mid=%v, SD=%v\n", min, max, mean, mid, std_dev)
 	fmt.Printf("%v of %v node(s) succeeded.\n", len(finished_nodes)-len(failed_nodes), len(all_nodes))
 	if len(failed_nodes) > 0 {
 		sort.Strings(failed_nodes)
 		fmt.Printf("Failed node(s) (%v/%v): %v\n", len(failed_nodes), len(all_nodes), strings.Join(failed_nodes, ", "))
 	}
-}
-
-func GetPaddingLine(heading string) string {
-	if padding_length := line_length - len(heading); padding_length > 0 {
-		padding := strings.Repeat("-", padding_length/2)
-		heading = fmt.Sprintf("%v%v%v", padding, heading, padding)
-	}
-	return heading
 }
 
 func GetTimeStat(data []time.Duration) (min, max, mean, mid, std_dev time.Duration) {
