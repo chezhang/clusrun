@@ -63,7 +63,7 @@ func (s *headnode_server) Heartbeat(ctx context.Context, in *pb.HeartbeatRequest
 
 func (s *headnode_server) GetNodes(ctx context.Context, in *pb.GetNodesRequest) (*pb.GetNodesReply, error) {
 	defer LogPanic()
-	pattern := in.GetPattern()
+	pattern, state, _ := in.GetPattern(), in.GetState(), in.GetGroups()
 	nodes := []*pb.GetNodesReply_Node{}
 	reported_time.Range(func(key interface{}, val interface{}) bool {
 		nodename := key.(string)
@@ -81,7 +81,9 @@ func (s *headnode_server) GetNodes(ctx context.Context, in *pb.GetNodesRequest) 
 				node.State = pb.NodeState_Error
 			}
 		}
-		nodes = append(nodes, &node)
+		if state == pb.NodeState_Unknown || state == node.State {
+			nodes = append(nodes, &node)
+		}
 		return true
 	})
 	log.Printf("GetNodes result:\n%v", nodes)

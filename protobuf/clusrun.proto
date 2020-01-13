@@ -56,10 +56,10 @@ message GetNodesRequest {
 
 message GetNodesReply {
   message Node {
-    string name = 1;
-    NodeState state = 2;
-    repeated uint32 jobs = 3;
-    repeated string groups = 4;
+    string Name = 1;
+    NodeState State = 2;
+    repeated uint32 Jobs = 3;
+    repeated string Groups = 4;
   }
   repeated Node nodes = 1;
 }
