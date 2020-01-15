@@ -46,10 +46,21 @@ Usage:
 	clus <command> [arguments]
 
 The commands are:
-	node            - list nodes in the cluster
-	run             - run a command or script on nodes of the cluster
-	job             - list jobs in the cluster
+	node            - list node(s) in the cluster
+	run             - run a command or script on node(s) in the cluster
+	job             - list job(s) in the cluster
 
+Usage of node:
+	clus node [options]
+	clus node -h
+
+Usage of run:
+	clus run [options] <command>
+	clus run -h
+
+Usage of job:
+	clus job [options] [jobs]
+	clus job -h
 `)
 }
 

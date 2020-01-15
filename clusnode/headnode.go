@@ -90,6 +90,22 @@ func (s *headnode_server) GetNodes(ctx context.Context, in *pb.GetNodesRequest) 
 	return &pb.GetNodesReply{Nodes: nodes}, nil
 }
 
+func (s *headnode_server) GetJobs(ctx context.Context, in *pb.GetJobsRequest) (*pb.GetJobsReply, error) {
+	defer LogPanic()
+	job_ids := in.GetJobIds()
+	loaded_jobs, err := LoadJobs()
+	if err != nil {
+		return nil, err
+	}
+	jobs := []*pb.Job{}
+	for i := range loaded_jobs {
+		if _, ok := job_ids[loaded_jobs[i].Id]; len(job_ids) == 0 || ok {
+			jobs = append(jobs, &loaded_jobs[i])
+		}
+	}
+	return &pb.GetJobsReply{Jobs: jobs}, nil
+}
+
 func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headnode_StartClusJobServer) error {
 	defer LogPanic()
 	log.Println("Received create job request")
@@ -108,12 +124,12 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	}
 
 	// Create job
-	id, err := CreateNewJob(command)
+	id, err := CreateNewJob(command, nodes)
 	if err != nil {
 		log.Printf("Failed to create job: %v", err)
 		return err
 	}
-	if err := out.Send(&pb.StartClusJobReply{JobId: uint32(id), Nodes: nodes}); err != nil {
+	if err := out.Send(&pb.StartClusJobReply{JobId: int32(id), Nodes: nodes}); err != nil {
 		log.Printf("Failed to send job id of job %v to client: %v", id, err)
 		return err
 	}
@@ -127,10 +143,9 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	}
 
 	// Wait for all jobs finish
-	UpdateJobState(id, State_Running)
+	UpdateJobState(id, pb.JobState_Running)
 	wg.Wait()
-	log.Printf("Job %v finished", id)
-	UpdateJobState(id, State_Finished) // TODO: Set state failed if job on any node failed
+	EndJob(id, pb.JobState_Finished) // TODO: Set state failed if job on any node failed
 	return nil
 }
 
@@ -234,7 +249,7 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 	}
 	defer f_out.Close()
 	defer f_err.Close()
-	job_on_nodes.Store(node, State_Dispatching)
+	job_on_nodes.Store(node, pb.JobState_Dispatching)
 
 	// Setup connection
 	ctx, cancel := context.WithTimeout(context.Background(), connect_timeout)
@@ -249,12 +264,12 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 	defer cancel()
 
 	// Start job on clusnode
-	stream, err := c.StartJob(ctx, &pb.StartJobRequest{JobId: uint32(id), Command: command, Headnode: local_host})
+	stream, err := c.StartJob(ctx, &pb.StartJobRequest{JobId: int32(id), Command: command, Headnode: local_host})
 	if err != nil {
 		log.Printf("Failed to start job %v on node %v: %v", id, node, err)
-		job_on_nodes.Store(node, State_Failed)
+		job_on_nodes.Store(node, pb.JobState_Failed)
 	} else {
-		job_on_nodes.Store(node, State_Running)
+		job_on_nodes.Store(node, pb.JobState_Running)
 	}
 
 	// Save and redirect output
@@ -308,5 +323,5 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 		f_err.Close()
 		os.Remove(stderr)
 	}
-	job_on_nodes.Store(node, State_Finished)
+	job_on_nodes.Store(node, pb.JobState_Finished)
 }

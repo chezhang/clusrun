@@ -115,7 +115,7 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 		return
 	}
 	var finished_nodes, failed_nodes, all_nodes []string
-	var job_id uint32
+	var job_id int32
 	start_time := time.Now()
 	job_time := make([]time.Duration, 0, len(all_nodes))
 	if output, err := stream.Recv(); err != nil {

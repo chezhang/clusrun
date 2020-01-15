@@ -30,11 +30,11 @@ func Node(args []string) {
 		nodes := GetNodes(ParseHeadnode(*headnode), *pattern, *filter_by_state, *filter_by_groups)
 		switch strings.ToLower(*format) {
 		case "table":
-			PrintTable(nodes, *group_by, *order_by)
+			NodePrintTable(nodes, *group_by, *order_by)
 		case "list":
-			PrintList(nodes, *group_by, *order_by)
+			NodePrintList(nodes, *group_by, *order_by)
 		case "group":
-			PrintGroups(nodes, *group_by)
+			NodePrintGroups(nodes, *group_by)
 		default:
 			fmt.Println("Invalid format option:", *format)
 			return
@@ -94,11 +94,11 @@ func GetNodes(headnode, pattern, state, groups string) (nodes []*pb.GetNodesRepl
 	return reply.GetNodes()
 }
 
-func PrintTable(nodes []*pb.GetNodesReply_Node, group_by, order_by string) {
+func NodePrintTable(nodes []*pb.GetNodesReply_Node, group_by, order_by string) {
 	groups := GetSortedGroups(nodes, group_by)
 	if len(groups) > 0 {
 		gap := 3
-		max_name_length, max_state_length := GetMaxLength(nodes)
+		max_name_length, max_state_length := GetNodeTableMaxLength(nodes)
 		name_width, state_width := max_name_length+gap, max_state_length+gap
 		fmt.Printf("%-*s%-*s\n", name_width, "Node", state_width, "State")
 		fmt.Printf("%-*s%-*s\n", name_width, strings.Repeat("-", max_name_length), state_width, strings.Repeat("-", max_state_length))
@@ -117,20 +117,21 @@ func PrintTable(nodes []*pb.GetNodesReply_Node, group_by, order_by string) {
 	fmt.Println("Node count:", len(nodes))
 }
 
-func PrintList(nodes []*pb.GetNodesReply_Node, group_by, order_by string) {
+func NodePrintList(nodes []*pb.GetNodesReply_Node, group_by, order_by string) {
 	groups := GetSortedGroups(nodes, group_by)
 	for i := range groups {
 		nodes := groups[i]
 		SortNodes(nodes, order_by)
 		for j := range nodes {
-			fmt.Printf("%v\n", nodes[j])
+			fmt.Println("Name:", nodes[j].Name)
+			fmt.Println("State:", nodes[j].State)
+			fmt.Println()
 		}
-		fmt.Println()
 	}
 	fmt.Println("Node count:", len(nodes))
 }
 
-func PrintGroups(nodes []*pb.GetNodesReply_Node, group_by string) {
+func NodePrintGroups(nodes []*pb.GetNodesReply_Node, group_by string) {
 	type group struct {
 		name  string
 		nodes []string
@@ -235,14 +236,15 @@ func GetNodesByGroup(nodes []*pb.GetNodesReply_Node, groupby string, separate_gr
 	return groups
 }
 
-func GetMaxLength(nodes []*pb.GetNodesReply_Node) (max_name_length, max_state_length int) {
-	max_name_length = 0
+func GetNodeTableMaxLength(nodes []*pb.GetNodesReply_Node) (max_name_length, max_state_length int) {
 	for i := range nodes {
 		if length := len(nodes[i].Name); length > max_name_length {
 			max_name_length = length
 		}
+		if length := len(nodes[i].State.String()); length > max_state_length {
+			max_state_length = length
+		}
 	}
-	max_state_length = 5
 	return
 }
 

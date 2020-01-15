@@ -56,32 +56,43 @@ message GetNodesRequest {
 
 message GetNodesReply {
   message Node {
-    string Name = 1;
-    NodeState State = 2;
-    repeated uint32 Jobs = 3;
-    repeated string Groups = 4;
+    string name = 1;
+    NodeState state = 2;
+    repeated int32 jobs = 3;
+    repeated string groups = 4;
   }
   repeated Node nodes = 1;
 }
 
 message GetJobsRequest {
-  string job_id = 1;
+  map<int32, bool> job_ids = 1;
+}
+
+enum JobState {
+	Created     = 0;
+	Dispatching = 1;
+	Running     = 2;
+	Canceling   = 3;
+	Finished    = 4;
+	Failed      = 5;
+	Canceled    = 6;
+}
+
+message Job {
+  int32 id = 1;
+  string command = 2;
+  repeated string nodes = 3;
+  int64 create_time = 4;
+  int64 end_time = 5;
+  JobState state = 6;
 }
 
 message GetJobsReply {
-  message Job {
-    uint32 job_id = 1;
-    string command = 2;
-    repeated string nodes = 3;
-    int64 start_time = 4;
-    int64 end_time = 5;
-    bool output = 6;
-  }
   repeated Job jobs = 1;
 }
 
 message GetOutputRequest {
-  string job_id = 1;
+  int32 job_id = 1;
   string node = 2;
 }
 
@@ -99,7 +110,7 @@ message StartClusJobRequest {
 }
 
 message StartClusJobReply {
-  uint32 job_id = 1;
+  int32 job_id = 1;
   repeated string nodes = 2;
   string node = 3;
   string stdout = 4;
@@ -108,13 +119,13 @@ message StartClusJobReply {
 }
 
 message CancelClusJobRequest {
-  string job_id = 1;
+  int32 job_id = 1;
 }
 
 
 message StartJobRequest {
   string headnode = 1;
-  uint32 job_id = 2;
+  int32 job_id = 2;
   string command = 3;
 }
 
@@ -126,7 +137,7 @@ message StartJobReply {
 
 message CancelJobRequest {
   string headnode = 1;
-  uint32 job_id = 2;
+  int32 job_id = 2;
   bool force = 3;
 }
 
