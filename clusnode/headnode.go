@@ -103,6 +103,7 @@ func (s *headnode_server) GetJobs(ctx context.Context, in *pb.GetJobsRequest) (*
 			jobs = append(jobs, &loaded_jobs[i])
 		}
 	}
+	log.Printf("GetJobs result:\n%v", jobs)
 	return &pb.GetJobsReply{Jobs: jobs}, nil
 }
 
@@ -135,6 +136,7 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	}
 
 	// Start job on nodes in the cluster
+	UpdateJobState(id, pb.JobState_Created, pb.JobState_Dispatching)
 	wg := sync.WaitGroup{}
 	var job_on_nodes sync.Map
 	for _, node := range nodes {
@@ -143,10 +145,43 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	}
 
 	// Wait for all jobs finish
-	UpdateJobState(id, pb.JobState_Running)
+	UpdateJobState(id, pb.JobState_Dispatching, pb.JobState_Running)
 	wg.Wait()
-	EndJob(id, pb.JobState_Finished) // TODO: Set state failed if job on any node failed
+	EndJob(id, pb.JobState_Running, pb.JobState_Finished) // TODO: Set state failed if job on any node failed
 	return nil
+}
+
+func (s *headnode_server) CancelClusJobs(ctx context.Context, in *pb.CancelClusJobsRequest) (*pb.CancelClusJobsReply, error) {
+	defer LogPanic()
+	log.Println("Received cancel job request")
+	job_ids := in.GetJobIds()
+	db_jobs_lock.Lock()
+	jobs, err := LoadJobs()
+	if err != nil {
+		return nil, err
+	}
+	if len(job_ids) == 0 && len(jobs) > 0 {
+		job_ids = map[int32]bool{jobs[len(jobs)-1].Id: false}
+	}
+	result := map[int32]pb.JobState{}
+	to_cancel := []int32{}
+	for i := range jobs {
+		if _, ok := job_ids[jobs[i].Id]; ok {
+			if IsActiveState(jobs[i].State) {
+				jobs[i].State = pb.JobState_Canceling
+				to_cancel = append(to_cancel, jobs[i].Id)
+			}
+			result[jobs[i].Id] = jobs[i].State
+		}
+	}
+	if err := SaveJobs(jobs); err != nil {
+		return nil, err
+	}
+	db_jobs_lock.Unlock()
+	for i := range to_cancel {
+		go CancelJob(to_cancel[i])
+	}
+	return &pb.CancelClusJobsReply{Result: result}, nil
 }
 
 func Validate(display_name, nodename, host string) {
@@ -324,4 +359,78 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 		os.Remove(stderr)
 	}
 	job_on_nodes.Store(node, pb.JobState_Finished)
+}
+
+func CancelJob(id int32) {
+	jobs, err := LoadJobs()
+	if err != nil {
+		log.Printf("Failed to cancel job %v: %v", id, err)
+		return
+	}
+	nodes := []string{}
+	for i := range jobs {
+		if jobs[i].Id == id && jobs[i].State == pb.JobState_Canceling {
+			nodes = jobs[i].Nodes
+			break
+		}
+	}
+	wg := sync.WaitGroup{}
+	result := sync.Map{}
+	for i := range nodes {
+		wg.Add(1)
+		result.Store(nodes[i], false)
+		go CancelJobOnNode(id, nodes[i], &wg, &result)
+	}
+	wg.Wait()
+	cancel_failed_nodes := []string{}
+	result.Range(func(node interface{}, canceled interface{}) bool {
+		if !canceled.(bool) {
+			cancel_failed_nodes = append(cancel_failed_nodes, node.(string))
+		}
+		return true
+	})
+	db_jobs_lock.Lock()
+	defer db_jobs_lock.Unlock()
+	jobs, err = LoadJobs()
+	for i := range jobs {
+		if jobs[i].Id == id {
+			if len(cancel_failed_nodes) == 0 {
+				jobs[i].State = pb.JobState_Canceled
+				log.Printf("Job %v is canceled", id)
+			} else {
+				jobs[i].State = pb.JobState_CancelFailed
+				jobs[i].CancelFailedNodes = cancel_failed_nodes
+				log.Printf("Cancellation of job %v failed for nodes: %v", id, cancel_failed_nodes)
+			}
+			break
+		}
+	}
+	if err := SaveJobs(jobs); err != nil {
+		log.Printf("Failed to save cancellation result of job %v: %v", id, err)
+		return
+	}
+}
+
+func CancelJobOnNode(id int32, node string, wg *sync.WaitGroup, result *sync.Map) {
+	defer wg.Done()
+
+	// Setup connection
+	ctx, cancel := context.WithTimeout(context.Background(), connect_timeout)
+	conn, err := grpc.DialContext(ctx, ParseHost(node), grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		log.Printf("Can not connect node %v in %v: %v", node, connect_timeout, err)
+		return
+	}
+	defer conn.Close()
+	c := pb.NewClusnodeClient(conn)
+	ctx, cancel = context.WithTimeout(context.Background(), connect_timeout)
+	defer cancel()
+
+	// Cancel job on clusnode
+	_, err = c.CancelJob(ctx, &pb.CancelJobRequest{JobId: id, Headnode: local_host})
+	if err != nil {
+		log.Printf("Failed to cancel job %v on node %v: %v", id, node, err)
+	} else {
+		result.Store(node, true)
+	}
 }

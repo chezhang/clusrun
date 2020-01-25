@@ -14,6 +14,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"runtime/debug"
 	"strconv"
 	"strings"
@@ -25,7 +26,9 @@ const (
 )
 
 var (
-	local_host string
+	executable_path string
+	local_host      string
+	run_on_windows  bool
 )
 
 func main() {
@@ -33,14 +36,7 @@ func main() {
 		DisplayUsage()
 		return
 	}
-
-	hostname, err := os.Hostname()
-	if err != nil {
-		log.Fatalf("Failed to get hostname: %v", err)
-	}
-	clusnode_name = strings.ToUpper(hostname)
-	local_host = clusnode_name + ":" + default_port
-
+	InitGlobalVars()
 	cmd, args := os.Args[1], os.Args[2:]
 	switch strings.ToLower(cmd) {
 	case "start":
@@ -67,6 +63,22 @@ The commands are:
 `)
 }
 
+func InitGlobalVars() {
+	var err error
+	if executable_path, err = os.Executable(); err != nil {
+		log.Fatalf("Failed to get executable path: %v", err)
+	}
+
+	hostname, err := os.Hostname()
+	if err != nil {
+		log.Fatalf("Failed to get hostname: %v", err)
+	}
+	clusnode_name = strings.ToUpper(hostname)
+	local_host = clusnode_name + ":" + default_port
+
+	run_on_windows = runtime.GOOS == "windows"
+}
+
 func isFlagPassed(name string) bool {
 	found := false
 	flag.Visit(func(f *flag.Flag) {
@@ -79,8 +91,8 @@ func isFlagPassed(name string) bool {
 
 func Start(args []string) {
 	fs := flag.NewFlagSet("clusnode start options", flag.ExitOnError)
-	default_config_file := os.Args[0] + ".config"
-	default_log_dir := os.Args[0] + ".log"
+	default_config_file := executable_path + ".config"
+	default_log_dir := executable_path + ".log"
 	default_log_file_label := filepath.Join(default_log_dir, "<start time>.log")
 	default_log_file := filepath.Join(default_log_dir, time.Now().Format("20060102150405.log"))
 	headnodes := fs.String("headnodes", local_host, "specify the host addresses of headnodes for this clusnode to join in")
@@ -89,13 +101,6 @@ func Start(args []string) {
 	config_file := fs.String("config-file", default_config_file, "specify the config file for saving and loading settings")
 	pprof := fs.Bool("pprof", false, "start HTTP server (8080) for pprof")
 	fs.Parse(args)
-
-	// Start HTTP server for pprof
-	if *pprof {
-		go func() {
-			http.ListenAndServe("0.0.0.0:8080", nil)
-		}()
-	}
 
 	// Setup log file
 	if *log_file == default_log_file_label {
@@ -114,6 +119,15 @@ func Start(args []string) {
 
 	// Catch and log panic
 	defer LogPanic()
+
+	// Start HTTP server for pprof
+	if *pprof {
+		go func() {
+			if err := http.ListenAndServe("0.0.0.0:8080", nil); err != nil {
+				log.Printf("Failed to start pprof HTTP server")
+			}
+		}()
+	}
 
 	// Setup config file
 	clusnode_config_file = *config_file

@@ -105,8 +105,12 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 	}
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)
-	ctx, cancel = context.WithTimeout(context.Background(), connect_timeout)
+	ctx, cancel = context.WithCancel(context.Background())
 	defer cancel()
+	// Potential grpc bug:
+	// 1. call cancel(): out.Send() on headnode get error code = Unavailable
+	// 2. set ctx = context.WithTimeout(context.Background(), 1 * time.Second): out.Send() on headnode get error code = DeadlineExceeded
+	// 3. set ctx = context.WithTimeout(context.Background(), 10 * time.Second): out.Send() on headnode get error code = Canceled
 
 	// Start job
 	stream, err := c.StartClusJob(ctx, &pb.StartClusJobRequest{Command: command, Pattern: pattern, Nodes: nodes})

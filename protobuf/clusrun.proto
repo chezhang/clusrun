@@ -22,12 +22,12 @@ service Headnode {
   rpc GetJobs (GetJobsRequest) returns (GetJobsReply) {}
   rpc GetOutput (GetOutputRequest) returns (stream GetOutputReply) {}
   rpc StartClusJob (StartClusJobRequest) returns (stream StartClusJobReply) {}
-  rpc CancelClusJob (CancelClusJobRequest) returns (Empty) {}
+  rpc CancelClusJobs (CancelClusJobsRequest) returns (CancelClusJobsReply) {}
 }
 
 service Clusnode {
   rpc StartJob (StartJobRequest) returns (stream StartJobReply) {}
-  rpc CancelJob (CancelJobRequest) returns (Empty) {}                                                                                                                                                                                                                                                           
+  rpc CancelJob (CancelJobRequest) returns (Empty) {}
   rpc Validate (ValidateRequest) returns (ValidateReply) {}
   rpc SetHeadnodes(SetHeadnodesRequest) returns (SetHeadnodesReply) {}
   rpc GetHeadnodes(Empty) returns (GetHeadnodesReply) {}
@@ -69,13 +69,14 @@ message GetJobsRequest {
 }
 
 enum JobState {
-	Created     = 0;
-	Dispatching = 1;
-	Running     = 2;
-	Canceling   = 3;
-	Finished    = 4;
-	Failed      = 5;
-	Canceled    = 6;
+  Created     = 0;
+  Dispatching = 1;
+  Running     = 2;
+  Canceling   = 3;
+  Finished    = 4;
+  Failed      = 5;
+  Canceled    = 6;
+  CancelFailed = 7;
 }
 
 message Job {
@@ -85,6 +86,7 @@ message Job {
   int64 create_time = 4;
   int64 end_time = 5;
   JobState state = 6;
+  repeated string cancel_failed_nodes = 7;
 }
 
 message GetJobsReply {
@@ -118,10 +120,13 @@ message StartClusJobReply {
   sint32 exit_code = 6;
 }
 
-message CancelClusJobRequest {
-  int32 job_id = 1;
+message CancelClusJobsRequest {
+  map<int32, bool> job_ids = 1;
 }
 
+message CancelClusJobsReply {
+  map<int32, JobState> result = 1;
+}
 
 message StartJobRequest {
   string headnode = 1;

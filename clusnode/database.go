@@ -24,7 +24,7 @@ var (
 )
 
 func InitDatabase() {
-	default_db_dir := os.Args[0] + ".db"
+	default_db_dir := executable_path + ".db"
 	db_max_job_count = 3 // TODO: get from config
 	headnode := filepath.Join(default_db_dir, strings.ReplaceAll(clusnode_host, ":", "."))
 	db_output_dir = headnode + ".output"
@@ -104,23 +104,23 @@ func CreateNewJob(command string, nodes []string) (int, error) {
 		return -1, err
 	}
 
+	// Cleanup output dir of old jobs
+	for _, id := range olds {
+		go CleanupOutputDir(id)
+	}
+
 	// Create output dir of new job
 	if err := os.MkdirAll(GetOutputDir(new_id), 0644); err != nil {
 		return -1, err
 	}
 
-	// Cleanup output dir of old jobs
-	for _, id := range olds {
-		go CleanupOutputDir(id)
-	}
 	return new_id, nil
 }
 
 func CleanupOutputDir(job_id int) {
+	log.Printf("Clean up output dir of job %v", job_id)
 	if err := os.RemoveAll(GetOutputDir(job_id)); err != nil {
 		log.Printf("Failed to cleanup output dir of job %v: %v", job_id, err)
-	} else {
-		log.Printf("Cleaned up output dir of job %v", job_id)
 	}
 }
 
@@ -171,25 +171,28 @@ func IsActiveState(state pb.JobState) bool {
 	return state == pb.JobState_Dispatching || state == pb.JobState_Running || state == pb.JobState_Canceling
 }
 
-func UpdateJobState(id int, state pb.JobState) error {
+func UpdateJobState(id int, from, to pb.JobState) error {
 	db_jobs_lock.Lock()
 	defer db_jobs_lock.Unlock()
 	jobs, err := LoadJobs()
 	if err != nil {
 		return err
 	}
-	var previous pb.JobState
 	for i := range jobs {
 		if int(jobs[i].Id) == id {
-			previous = jobs[i].State
-			jobs[i].State = state
+			if from == jobs[i].State {
+				jobs[i].State = to
+			} else {
+				log.Printf("Skip changing job %v state from %v to %v (Current state: %v)", id, from, to, jobs[i].State)
+				return nil
+			}
 			break
 		}
 	}
 	if err := SaveJobs(jobs); err != nil {
 		return err
 	}
-	log.Printf("Job %v state changed from %v to %v", id, previous, state)
+	log.Printf("Job %v state changed from %v to %v", id, from, to)
 	return nil
 }
 
@@ -202,7 +205,7 @@ func GetOutputFile(id int, node string) (string, string) {
 	return file + ".out", file + ".err"
 }
 
-func EndJob(id int, state pb.JobState) error {
+func EndJob(id int, from, to pb.JobState) error {
 	db_jobs_lock.Lock()
 	defer db_jobs_lock.Unlock()
 	jobs, err := LoadJobs()
@@ -212,13 +215,18 @@ func EndJob(id int, state pb.JobState) error {
 	for i := range jobs {
 		if int(jobs[i].Id) == id {
 			jobs[i].EndTime = time.Now().Unix()
-			jobs[i].State = state
+			if jobs[i].State == from {
+				jobs[i].State = to
+			} else {
+				log.Printf("Skip changing job %v state from %v to %v (Current state: %v)", id, from, to, jobs[i].State)
+				return nil
+			}
 			break
 		}
 	}
 	if err := SaveJobs(jobs); err != nil {
 		return err
 	}
-	log.Printf("Job %v ended with state %v", id, state)
+	log.Printf("Job %v ended with state %v", id, to)
 	return nil
 }

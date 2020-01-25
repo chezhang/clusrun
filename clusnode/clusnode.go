@@ -2,6 +2,7 @@ package main
 
 import (
 	pb "../protobuf"
+	"./platform"
 	"context"
 	"errors"
 	"io"
@@ -10,7 +11,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"sync"
@@ -29,7 +29,7 @@ var (
 	clusnode_name       string
 	clusnode_host       string
 	headnodes_reporting sync.Map
-	jobs_cancellation   sync.Map
+	jobs_pid            sync.Map
 )
 
 type heartbeat_state struct {
@@ -105,19 +105,17 @@ func (s *clusnode_server) StartJob(in *pb.StartJobRequest, out pb.Clusnode_Start
 		log.Printf(message+" for job %v", job_label)
 		return errors.New(message)
 	}
+	defer CleanupJob(job_label, cmd_file)
 
 	// Run command
 	start_point := "/bin/bash"
 	arg := cmd_file
-	if runtime.GOOS == "windows" {
+	if run_on_windows {
 		start_point = cmd_file
 		arg = ""
 	}
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	jobs_cancellation.Store(job_label, cancel)
-	defer CleanupJob(job_label, cmd_file)
-	cmd := exec.CommandContext(ctx, start_point, arg)
+	cmd := exec.Command(start_point, arg)
+	platform.SetSysProcAttr(cmd)
 	var stdout, stderr io.Reader
 	if stdout, err = cmd.StdoutPipe(); err == nil {
 		if stderr, err = cmd.StderrPipe(); err == nil {
@@ -129,6 +127,7 @@ func (s *clusnode_server) StartJob(in *pb.StartJobRequest, out pb.Clusnode_Start
 		log.Printf("%v %v: %v", message, job_label, err)
 		return errors.New(message)
 	}
+	jobs_pid.Store(job_label, cmd.Process.Pid)
 
 	// Send output
 	wg := sync.WaitGroup{}
@@ -178,8 +177,30 @@ func (s *clusnode_server) StartJob(in *pb.StartJobRequest, out pb.Clusnode_Start
 	return err
 }
 
+func (s *clusnode_server) CancelJob(ctx context.Context, in *pb.CancelJobRequest) (*pb.Empty, error) {
+	defer LogPanic()
+	headnode, job_id := in.GetHeadnode(), in.GetJobId()
+	log.Printf("Receive CancelJob from headnode %v to cancel job %v", headnode, job_id)
+	job_label := GetJobLabel(headnode, int(job_id))
+	if pid, ok := jobs_pid.Load(job_label); ok {
+		pid := pid.(int)
+		if run_on_windows {
+			cmd := []string{"TASKKILL", "/T", "/F", "/PID", strconv.Itoa(pid)}
+			log.Printf("Cancel job %v with command: %v", job_label, strings.Join(cmd, " "))
+			output, _ := exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
+			log.Printf("Cancel job %v result: %s", job_label, output)
+		} else {
+			log.Printf("Cancel job %v by killing process group of process %v", job_label, pid)
+			platform.KillProcessGroup(pid)
+		}
+	} else {
+		log.Printf("Job %v is not running", job_label)
+	}
+	return &pb.Empty{}, nil
+}
+
 func CleanupJob(job_label, cmd_file string) {
-	jobs_cancellation.Delete(job_label)
+	jobs_pid.Delete(job_label)
 	if err := os.Remove(cmd_file); err != nil {
 		log.Printf("Failed to cleanup job %v: %v", job_label, err)
 	}
@@ -191,7 +212,7 @@ func GetJobLabel(headnode string, job_id int) string {
 
 func CreateCommandFile(job_label, command string) (string, error) {
 	file := filepath.Join(db_cmd_dir, job_label)
-	if runtime.GOOS == "windows" {
+	if run_on_windows {
 		command = "@echo off\n" + command
 		file += ".cmd"
 	} else {

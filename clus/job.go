@@ -16,12 +16,17 @@ import (
 func Job(args []string) {
 	fs := flag.NewFlagSet("clus job options", flag.ExitOnError)
 	headnode := fs.String("headnode", local_host, "specify the headnode to connect")
-	format := fs.String("format", "", "format the nodes in table or list")
-	// cancel := fs.Bool("cancel", false, "cancel job(s)")
+	format := fs.String("format", "", "format the jobs in table or list")
+	cancel := fs.Bool("cancel", false, "cancel jobs")
 	// output := fs.Bool("output", false, "get output of job(s)")
-	// nodes := fs.String("nodes", "", "get info or output of job for certain nodes")
+	// nodes := fs.String("nodes", "", "get info or output of jobs on certain nodes")
+	// state := fs.String("state", "", "get jobs in certain state")
 	fs.Parse(args)
 	job_ids := ParseJobIds(fs.Args())
+	if *cancel {
+		CancelJobs(*headnode, job_ids)
+		return
+	}
 	jobs := GetJobs(*headnode, job_ids)
 	if len(*format) == 0 {
 		if len(job_ids) == 0 {
@@ -47,7 +52,7 @@ func ParseJobIds(args []string) map[int32]bool {
 		for i := range args {
 			ids := strings.Split(args[i], ",")
 			for j := range ids {
-				if id, err := strconv.Atoi(strings.TrimSpace(ids[j])); err != nil {
+				if id, err := strconv.Atoi(strings.TrimSpace(ids[j])); err != nil || id <= 0 {
 					fmt.Println("Invalid job id:", ids[j])
 					os.Exit(0)
 				} else {
@@ -57,6 +62,37 @@ func ParseJobIds(args []string) map[int32]bool {
 		}
 	}
 	return job_ids
+}
+
+func CancelJobs(headnode string, job_ids map[int32]bool) {
+	// Setup connection
+	ctx, cancel := context.WithTimeout(context.Background(), connect_timeout)
+	defer cancel()
+	conn, err := grpc.DialContext(ctx, headnode, grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		fmt.Println("Can not connect:", err)
+		fmt.Printf("Please ensure the headnode %v is started and accessible\n", headnode)
+		os.Exit(0)
+	}
+	defer conn.Close()
+	c := pb.NewHeadnodeClient(conn)
+	ctx, cancel = context.WithTimeout(context.Background(), connect_timeout)
+	defer cancel()
+
+	// Cancel job(s) in the cluster
+	reply, err := c.CancelClusJobs(ctx, &pb.CancelClusJobsRequest{JobIds: job_ids})
+	if err != nil {
+		fmt.Println("Can not cancel job(s):", err)
+		os.Exit(0)
+	}
+	result := reply.GetResult()
+	if len(result) == 0 {
+		fmt.Println("No job is cancelled.")
+	} else {
+		for job, state := range result {
+			fmt.Printf("Job %v is %v\n", job, state)
+		}
+	}
 }
 
 func GetJobs(headnode string, ids map[int32]bool) (jobs []*pb.Job) {
@@ -74,7 +110,7 @@ func GetJobs(headnode string, ids map[int32]bool) (jobs []*pb.Job) {
 	ctx, cancel = context.WithTimeout(context.Background(), connect_timeout)
 	defer cancel()
 
-	// Get job(s) of the cluster
+	// Get job(s) in the cluster
 	reply, err := c.GetJobs(ctx, &pb.GetJobsRequest{JobIds: ids})
 	if err != nil {
 		fmt.Println("Can not get job(s):", err)
