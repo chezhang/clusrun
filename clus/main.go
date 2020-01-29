@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"golang.org/x/crypto/ssh/terminal"
 	"os"
 	"strings"
 	"time"
@@ -24,7 +25,7 @@ func main() {
 		return
 	}
 	var err error
-	if console_width, err = GetConsoleWidth(); err != nil {
+	if console_width, _, err = terminal.GetSize(int(os.Stdout.Fd())); err != nil {
 		fmt.Printf("[Warning] Failed to get console width: %v", err)
 	}
 	cmd, args := os.Args[1], os.Args[2:]
