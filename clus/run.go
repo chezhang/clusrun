@@ -28,9 +28,9 @@ func Run(args []string) {
 	dump := fs.Bool("dump", false, "save the output to file")
 	nodes := fs.String("nodes", "", "specify certain nodes to run the command")
 	pattern := fs.String("pattern", "", "specify nodes matching a certain regular expression pattern to run the command")
-	buffer := fs.Int("buffer", 1000, "specify the size of buffer to store the output of command on each node")
-	meantime := fs.Int("meantime", 1, "specify the count of nodes, the output of which will be displayed in the meantime of command running")
-	// pick := fs.Int("pick", 0, "Pick certain count of nodes to run, default 0 means pick all nodes")
+	cache := fs.Int("cache", 1000, "specify the number of characters for caching the output of command on each node")
+	immediate := fs.Int("immediate", 1, "specify the number of nodes, the output of which will be displayed immediately")
+	// pick := fs.Int("pick", 0, "pick certain number of nodes to run, default 0 means pick all nodes")
 	// merge := fs.Bool("merge", false, "specify if merge outputs with the same content for different nodes")
 	fs.Parse(args)
 	command := strings.Join(fs.Args(), " ")
@@ -47,7 +47,7 @@ func Run(args []string) {
 	if *dump {
 		output_dir = CreateOutputDir()
 	}
-	RunJob(ParseHeadnode(*headnode), command, output_dir, *pattern, ParseNodes(*nodes), *buffer, *meantime)
+	RunJob(ParseHeadnode(*headnode), command, output_dir, *pattern, ParseNodes(*nodes), *cache, *immediate)
 }
 
 func DisplayRunUsage(fs *flag.FlagSet) {
@@ -93,7 +93,7 @@ func CreateOutputDir() string {
 	return output_dir
 }
 
-func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffer_size, meantime int) {
+func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffer_size, immediate int) {
 	// Setup connection
 	ctx, cancel := context.WithTimeout(context.Background(), connect_timeout)
 	defer cancel()
@@ -158,28 +158,28 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 	}
 
 	// Pick nodes whose output will be displayed immediately
-	if meantime < 0 {
-		meantime = 0
-	} else if meantime > len(all_nodes) {
-		meantime = len(all_nodes)
+	if immediate < 0 {
+		immediate = 0
+	} else if immediate > len(all_nodes) {
+		immediate = len(all_nodes)
 	}
-	immediate_nodes := make(map[string]bool, meantime)
-	for i := 0; i < meantime; i++ {
+	immediate_nodes := make(map[string]bool, immediate)
+	for i := 0; i < immediate; i++ {
 		immediate_nodes[all_nodes[i]] = true
 	}
 
-	// Initialize output buffer
+	// Initialize output cache
 	if buffer_size < min_buffer_size {
 		buffer_size = min_buffer_size
 	}
-	buffer := make(map[string][]rune, len(all_nodes))
+	cache := make(map[string][]rune, len(all_nodes))
 
 	// Handle SIGINT
 	ch := make(chan os.Signal, 1)
 	signal.Notify(ch, os.Interrupt)
 	go func() {
 		<-ch
-		Summary(buffer, finished_nodes, failed_nodes, all_nodes, buffer_size, job_time)
+		Summary(cache, finished_nodes, failed_nodes, all_nodes, buffer_size, job_time)
 		if len(all_nodes) > len(finished_nodes) {
 			fmt.Printf("Job %v is still running.\n", job_id)
 		}
@@ -211,10 +211,10 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 				fmt.Printf("[%v/%v] Command %v on node %v in %v.\n", len(finished_nodes), len(all_nodes), state, node, duration)
 			} else {
 				// TODO: Consider changing the stdout/stderr type in stream from string to []rune to improve performance
-				buffer[node] = append(buffer[node], []rune(content)...) // Buffer output
-				// Use []rune instead of string/[]byte to prevent an unicode character from being splited when truncating the buffer
-				if over_size := len(buffer[node]) - (buffer_size + 1); over_size > 0 {
-					buffer[node] = buffer[node][over_size:]
+				cache[node] = append(cache[node], []rune(content)...) // Buffer output
+				// Use []rune instead of string/[]byte to prevent an unicode character from being splited when truncating the cache
+				if over_size := len(cache[node]) - (buffer_size + 1); over_size > 0 {
+					cache[node] = cache[node][over_size:]
 				}
 				content = strings.TrimSpace(content)
 				if _, ok := immediate_nodes[node]; ok && len(content) > 0 { // Print immediately
@@ -232,18 +232,18 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 			}
 		}
 	}
-	Summary(buffer, finished_nodes, failed_nodes, all_nodes, buffer_size, job_time)
+	Summary(cache, finished_nodes, failed_nodes, all_nodes, buffer_size, job_time)
 }
 
-func Summary(buffer map[string][]rune, finished_nodes, failed_nodes, all_nodes []string, buffer_size int, job_time []time.Duration) {
+func Summary(cache map[string][]rune, finished_nodes, failed_nodes, all_nodes []string, buffer_size int, job_time []time.Duration) {
 	fmt.Println()
-	nodes := make([]string, 0, len(buffer))
-	for node := range buffer {
+	nodes := make([]string, 0, len(cache))
+	for node := range cache {
 		nodes = append(nodes, node)
 	}
 	sort.Strings(nodes)
 	for _, node := range nodes {
-		output := buffer[node]
+		output := cache[node]
 		heading := fmt.Sprintf("---[%v]---", node)
 		fmt.Println(GetPaddingLine(heading))
 		if over_size := len(output) - buffer_size; over_size > 0 {
@@ -254,8 +254,13 @@ func Summary(buffer map[string][]rune, finished_nodes, failed_nodes, all_nodes [
 	}
 	min, max, mean, mid, std_dev := GetTimeStat(job_time)
 	fmt.Println(GetPaddingLine(""))
-	// TODO: Limit/Fix the width of the time duration numbers
-	fmt.Printf("Runtime: Min=%v, Max=%v, Mean=%v, Mid=%v, SD=%v\n", min, max, mean, mid, std_dev)
+	runtime := fmt.Sprintf("Runtime: Min=%v, Max=%v, Mean=%v, Mid=%v, SD=%v", min, max, mean, mid, std_dev)
+	if len(runtime) <= console_width {
+		fmt.Println(runtime)
+	} else {
+		fmt.Println(strings.ReplaceAll(strings.ReplaceAll(runtime, " ", "\n"), ",", ""))
+		fmt.Println()
+	}
 	fmt.Printf("%v of %v node(s) succeeded.\n", len(finished_nodes)-len(failed_nodes), len(all_nodes))
 	if len(failed_nodes) > 0 {
 		sort.Strings(failed_nodes)
