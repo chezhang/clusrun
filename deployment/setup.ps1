@@ -1,7 +1,9 @@
+#Requires -RunAsAdministrator
+
 [CmdletBinding(DefaultParametersetName="default")]  
 Param(
     [string] $headnodes = "localhost", 
-    [string] $installDir = "C:\clusrun",
+    [string] $location = "C:\Program Files\clusrun",
     [Parameter(ParameterSetName = "install")]
     [switch] $reinstall = $false,
     [Parameter(ParameterSetName = "uninstall")]
@@ -12,7 +14,7 @@ $setup_url = "https://github.com/chezhang/clusrun/releases/download/0.1.0/setup.
 $setup_file = "$pwd\clusrun.setup.zip"
 
 if($uninstall -or $reinstall) {
-    Set-Location $installDir
+    Set-Location $location
     .\uninstall.bat
     if($uninstall) {
         return
@@ -27,10 +29,10 @@ for ($i = 0; $i -le 10; $i++) {
 
 $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.IO.Compression.FileSystem
-[System.IO.Compression.ZipFile]::ExtractToDirectory($setup_file, $installDir)
+[System.IO.Compression.ZipFile]::ExtractToDirectory($setup_file, $location)
 Remove-Item $setup_file
 
-Set-Location $installDir
+Set-Location $location
 .\install.bat
 Remove-Item install.bat
 .\clusnode.exe set -headnodes "$headnodes"
