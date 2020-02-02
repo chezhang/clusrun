@@ -108,13 +108,13 @@ func (s *clusnode_server) StartJob(in *pb.StartJobRequest, out pb.Clusnode_Start
 	defer CleanupJob(job_label, cmd_file)
 
 	// Run command
-	start_point := "/bin/bash"
-	arg := cmd_file
-	if run_on_windows {
-		start_point = cmd_file
-		arg = ""
+	start_point := cmd_file
+	args := []string{}
+	if !run_on_windows {
+		start_point = "/bin/bash"
+		args = append(args, cmd_file)
 	}
-	cmd := exec.Command(start_point, arg)
+	cmd := exec.Command(start_point, args...)
 	platform.SetSysProcAttr(cmd)
 	var stdout, stderr io.Reader
 	if stdout, err = cmd.StdoutPipe(); err == nil {
