@@ -3,13 +3,13 @@ Param(
     [string] $resourceGroup, 
     [Parameter(Mandatory = $true)]
     [string] $vmssName,
-    [Parameter(Mandatory = $false)]
-    [string] $headnodes
+    [string] $headnodes,
+    [switch] $uninstall = $false
 )
 
-$vmssExtensionName = "Install_clusrun"
-$reinstallParameter = ""
 $baseUrl = "https://github.com/chezhang/clusrun/releases/download/0.1.0"
+$vmssExtensionName = "Install_clusrun"
+$installParameter = ""
 
 $vmss = Get-AzVmss -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName -ErrorAction Stop
 $extensions = (Get-AzVmss -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName -InstanceView).Extensions
@@ -42,13 +42,13 @@ $extensions
 $clusrun = $extensions | Where-Object {$_.Name -eq $vmssExtensionName} 
 if ($clusrun) {
     if ($windows) {
-        $reinstallParameter = "-reinstall"
+        $installParameter = "-reinstall"
     } else {
-        $reinstallParameter = "-r"
+        $installParameter = "-r"
     }
     $clusrun.StatusesSummary | Format-Table
     
-    "Uninstalling extension $vmssExtensionName ..."
+    "Removing extension $vmssExtensionName ..."
     Remove-AzVmssExtension -VirtualMachineScaleSet $vmss -Name $vmssExtensionName | Out-Null
     Update-AzVmss -ResourceGroupName $resourceGroup -Name $vmssName -VirtualMachineScaleSet $vmss 2>&1 | Out-Null
     Update-AzVmssInstance -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName -InstanceId "*" 2>&1 | Out-Null
@@ -57,20 +57,20 @@ if ($clusrun) {
     (Get-AzVmss -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName -InstanceView).Extensions | Format-Table
 }
 
-"Installing extension $vmssExtensionName ..."
-
-if ($windows) {
-    $download_file = "setup.ps1"
-    $command = "powershell -ExecutionPolicy Unrestricted -File $download_file $reinstallParameter -headnodes `"$headnodes`" >`"%cd%\clusrun.setup.log`" 2>&1"
-} else {
-    $download_file = "setup.sh"
-    $command = "bash $download_file $reinstallParameter -h `"$headnodes`""
+if ($uninstall) {
+    if (!$clusrun) {
+        "No clusrun to uninstall"
+        return
+    }
+    $vmssExtensionName = "Uninstall_clusrun"
+    if ($windows) {
+        $installParameter = "-uninstall"
+    } else {
+        $installParameter = "-u"
+    }
 }
 
-$installClusrun = @{
-  "fileUris" = (,"https://github.com/chezhang/clusrun/releases/download/0.1.0/$download_file");
-  "commandToExecute" = $command
-}
+"Adding extension $vmssExtensionName ..."
 
 if ($windows) {
     $vmss = Add-AzVmssExtension `
@@ -81,7 +81,7 @@ if ($windows) {
         -TypeHandlerVersion 1.9 `
         -Setting @{
             "fileUris" = (,"$baseUrl/setup.ps1");
-            "commandToExecute" = "powershell -ExecutionPolicy Unrestricted -File setup.ps1 $reinstallParameter -headnodes `"$headnodes`" >`"%cd%\clusrun.setup.log`" 2>&1"
+            "commandToExecute" = "powershell -ExecutionPolicy Unrestricted -File setup.ps1 $installParameter -headnodes `"$headnodes`" >`"%cd%\clusrun.setup.log`" 2>&1"
             }
 } else {
     $vmss = Add-AzVmssExtension `
@@ -92,7 +92,7 @@ if ($windows) {
         -TypeHandlerVersion 2.1 `
         -Setting @{
             "fileUris" = (,"$baseUrl/setup.sh");
-            "commandToExecute" = "bash setup.sh $reinstallParameter -h `"$headnodes`""
+            "commandToExecute" = "bash setup.sh $installParameter -h `"$headnodes`""
             }
 }
 
@@ -104,3 +104,13 @@ $extensions = (Get-AzVmss -ResourceGroupName $resourceGroup -VMScaleSetName $vms
 $extensions | Format-Table
 $clusrun = $extensions | Where-Object {$_.Name -eq $vmssExtensionName} 
 $clusrun.StatusesSummary | Format-Table
+
+if ($uninstall) {
+    "Removing extension $vmssExtensionName ..."
+    Remove-AzVmssExtension -VirtualMachineScaleSet $vmss -Name $vmssExtensionName | Out-Null
+    Update-AzVmss -ResourceGroupName $resourceGroup -Name $vmssName -VirtualMachineScaleSet $vmss 2>&1 | Out-Null
+    Update-AzVmssInstance -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName -InstanceId "*" 2>&1 | Out-Null
+    
+    "Current extensions:"
+    (Get-AzVmss -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName -InstanceView).Extensions | Format-Table
+}
