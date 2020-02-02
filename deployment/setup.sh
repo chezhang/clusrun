@@ -34,6 +34,7 @@ rm $setup_file
 cd $location
 ./install.sh
 rm install.sh
+sleep 1
 ./clusnode set -headnodes "$headnodes"
 
 add_to_path="export PATH=\$PATH:$location"
