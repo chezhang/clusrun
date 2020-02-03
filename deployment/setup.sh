@@ -26,7 +26,10 @@ if $uninstall || $reinstall; then
     fi
 fi
 
-wget --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 -t 0 --progress=bar:force -O $setup_file $setup_url
+for i in {1..10}; do
+    wget --retry-connrefused --waitretry=1 --read-timeout=20 --timeout=15 -t 0 --progress=bar:force -O $setup_file $setup_url
+    [ $? -eq 0 ] && break || sleep 1
+done
 mkdir -p $location
 tar xzvf $setup_file -C $location
 rm $setup_file
