@@ -39,7 +39,9 @@ func Run(args []string) {
 			fmt.Printf("[Warning] The command '%v' will be overwritten by scirpt %v\n", command, *script)
 		}
 		command = ParseScript(*script)
-	} else if len(command) == 0 {
+	} else if len(command) > 0 {
+		command = "@echo off\n:: Turn off ECHO by default\n\n" + command
+	} else {
 		DisplayRunUsage(fs)
 		return
 	}

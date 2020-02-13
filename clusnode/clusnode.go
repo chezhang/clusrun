@@ -213,7 +213,6 @@ func GetJobLabel(headnode string, job_id int) string {
 func CreateCommandFile(job_label, command string) (string, error) {
 	file := filepath.Join(db_cmd_dir, job_label)
 	if run_on_windows {
-		command = "@echo off\n" + command
 		file += ".cmd"
 	} else {
 		file += ".sh"
