@@ -35,8 +35,7 @@ if (!$headnodes) {
     "Use the first instance $name with hostname $headnodes as headnode"
 }
 
-
-"Current extensions:"
+"[$(Get-Date)] Current extensions:"
 $extensions
 
 $clusrun = $extensions | Where-Object {$_.Name -eq $vmssExtensionName} 
@@ -48,12 +47,12 @@ if ($clusrun) {
     }
     $clusrun.StatusesSummary | Format-Table
     
-    "Removing extension $vmssExtensionName ..."
+    "`r`n`r`n[$(Get-Date)] Removing extension $vmssExtensionName ..."
     Remove-AzVmssExtension -VirtualMachineScaleSet $vmss -Name $vmssExtensionName | Out-Null
     Update-AzVmss -ResourceGroupName $resourceGroup -Name $vmssName -VirtualMachineScaleSet $vmss 2>&1 | Out-Null
     Update-AzVmssInstance -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName -InstanceId "*" 2>&1 | Out-Null
     
-    "Current extensions:"
+    "`r`n`r`n[$(Get-Date)] Current extensions:"
     (Get-AzVmss -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName -InstanceView).Extensions | Format-Table
 }
 
@@ -70,7 +69,7 @@ if ($uninstall) {
     }
 }
 
-"Adding extension $vmssExtensionName ..."
+"`r`n`r`n[$(Get-Date)] Adding extension $vmssExtensionName ..."
 
 if ($windows) {
     $vmss = Add-AzVmssExtension `
@@ -80,8 +79,8 @@ if ($windows) {
         -Type "CustomScriptExtension" `
         -TypeHandlerVersion 1.9 `
         -Setting @{
-            "fileUris" = (,"$baseUrl/setup.ps1");
-            "commandToExecute" = "powershell -ExecutionPolicy Unrestricted -File setup.ps1 $installParameter -headnodes `"$headnodes`" >`"%cd%\clusrun.setup.log`" 2>&1"
+            "fileUris" = ("$baseUrl/setup.zip","$baseUrl/setup.ps1");
+            "commandToExecute" = "powershell -ExecutionPolicy Unrestricted -File setup.ps1 $installParameter -headnodes `"$headnodes`" -setup_url setup.zip >`"%cd%\clusrun.setup.log`" 2>&1"
             }
 } else {
     $vmss = Add-AzVmssExtension `
@@ -91,26 +90,26 @@ if ($windows) {
         -Type "CustomScript" `
         -TypeHandlerVersion 2.1 `
         -Setting @{
-            "fileUris" = (,"$baseUrl/setup.sh");
-            "commandToExecute" = "bash setup.sh $installParameter -h `"$headnodes`""
+            "fileUris" = ("$baseUrl/setup.tar.gz","$baseUrl/setup.sh");
+            "commandToExecute" = "bash setup.sh $installParameter -h `"$headnodes`" -s setup.tar.gz"
             }
 }
 
 Update-AzVmss -ResourceGroupName $resourceGroup -Name $vmssName -VirtualMachineScaleSet $vmss 2>&1 | Out-Null
 Update-AzVmssInstance -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName -InstanceId "*" 2>&1 | Out-Null
 
-"Current extensions:"
+"`r`n`r`n[$(Get-Date)] Current extensions:"
 $extensions = (Get-AzVmss -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName -InstanceView).Extensions
 $extensions | Format-Table
 $clusrun = $extensions | Where-Object {$_.Name -eq $vmssExtensionName} 
 $clusrun.StatusesSummary | Format-Table
 
 if ($uninstall) {
-    "Removing extension $vmssExtensionName ..."
+    "`r`n`r`n[$(Get-Date)] Removing extension $vmssExtensionName ..."
     Remove-AzVmssExtension -VirtualMachineScaleSet $vmss -Name $vmssExtensionName | Out-Null
     Update-AzVmss -ResourceGroupName $resourceGroup -Name $vmssName -VirtualMachineScaleSet $vmss 2>&1 | Out-Null
     Update-AzVmssInstance -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName -InstanceId "*" 2>&1 | Out-Null
     
-    "Current extensions:"
+    "`r`n`r`n[$(Get-Date)] Current extensions:"
     (Get-AzVmss -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName -InstanceView).Extensions | Format-Table
 }
