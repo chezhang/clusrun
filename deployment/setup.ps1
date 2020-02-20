@@ -2,7 +2,8 @@
 
 [CmdletBinding(DefaultParametersetName="default")]  
 Param(
-    [string] $headnodes = "localhost", 
+    [string] $headnodes = "localhost",
+    [int] $port = 50505,
     [string] $location = "C:\Program Files\clusrun",
     [string] $setup_url = "https://github.com/chezhang/clusrun/releases/download/0.1.0/setup.zip",
     [Parameter(ParameterSetName = "install")]
@@ -39,7 +40,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 "$(Get-Date)  Install clusrun"
 Set-Location $location
-.\install.bat
+.\install.bat $port
 Remove-Item install.bat
 Start-Sleep 1
 
