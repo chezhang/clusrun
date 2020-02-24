@@ -1,5 +1,7 @@
 #!/bin/bash
 
+port=${1:-50505}
+
 systemctl stop clusrun
 
 cat <<EOF >/etc/systemd/system/clusrun.service
@@ -8,7 +10,7 @@ Description=clusrun service
 
 [Service]
 User=root
-ExecStart=$(pwd)/clusnode start
+ExecStart=$(pwd)/clusnode start -host localhost:$port
 LimitNOFILE=65536
 
 [Install]

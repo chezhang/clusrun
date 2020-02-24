@@ -3,6 +3,7 @@
 [[ $EUID -ne 0 ]] && echo root privilege is required && exit
 
 headnodes="localhost"
+port=50505
 location="/usr/local/clusrun"
 setup_url="https://github.com/chezhang/clusrun/releases/download/0.1.0/setup.tar.gz"
 reinstall=false
@@ -10,6 +11,7 @@ uninstall=false
 while getopts h:l:s:ru option; do
     case "${option}" in
         h) headnodes=${OPTARG};;
+        p) port=${OPTARG};;
         l) location=${OPTARG};;
         s) setup_url=${OPTARG};;
         r) reinstall=true;;
@@ -39,7 +41,7 @@ mkdir -p $location
 tar xzvf $setup_url -C $location
 
 cd $location
-./install.sh
+./install.sh $port
 rm install.sh
 sleep 1
 ./clusnode set -headnodes "$headnodes"
