@@ -17,10 +17,6 @@ import (
 	"time"
 )
 
-const (
-	min_buffer_size = 30
-)
-
 func Run(args []string) {
 	fs := flag.NewFlagSet("clus run options", flag.ExitOnError)
 	headnode := fs.String("headnode", local_host, "specify the headnode to connect")
@@ -28,7 +24,7 @@ func Run(args []string) {
 	dump := fs.Bool("dump", false, "save the output to file")
 	nodes := fs.String("nodes", "", "specify certain nodes to run the command")
 	pattern := fs.String("pattern", "", "specify nodes matching a certain regular expression pattern to run the command")
-	cache := fs.Int("cache", 1000, "specify the number of characters for caching the output of command on each node")
+	cache := fs.Int("cache", 1000, "specify the number of characters to cache and display for output of command on each node")
 	immediate := fs.Int("immediate", 1, "specify the number of nodes, the output of which will be displayed immediately")
 	// pick := fs.Int("pick", 0, "pick certain number of nodes to run, default 0 means pick all nodes")
 	// merge := fs.Bool("merge", false, "specify if merge outputs with the same content for different nodes")
@@ -171,9 +167,6 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 	}
 
 	// Initialize output cache
-	if buffer_size < min_buffer_size {
-		buffer_size = min_buffer_size
-	}
 	cache := make(map[string][]rune, len(all_nodes))
 
 	// Handle SIGINT
@@ -212,11 +205,13 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 				job_time = append(job_time, duration)
 				fmt.Printf("[%v/%v] Command %v on node %v in %v.\n", len(finished_nodes), len(all_nodes), state, node, duration)
 			} else {
-				// TODO: Consider changing the stdout/stderr type in stream from string to []rune to improve performance
-				cache[node] = append(cache[node], []rune(content)...) // Buffer output
-				// Use []rune instead of string/[]byte to prevent an unicode character from being splited when truncating the cache
-				if over_size := len(cache[node]) - (buffer_size + 1); over_size > 0 {
-					cache[node] = cache[node][over_size:]
+				if buffer_size > 0 {
+					// TODO: Consider changing the stdout/stderr type in stream from string to []rune to improve performance
+					cache[node] = append(cache[node], []rune(content)...) // Buffer output
+					// Use []rune instead of string/[]byte to prevent an unicode character from being splited when truncating the cache
+					if over_size := len(cache[node]) - (buffer_size + 1); over_size > 0 {
+						cache[node] = cache[node][over_size:]
+					}
 				}
 				content = strings.TrimSpace(content)
 				if _, ok := immediate_nodes[node]; ok && len(content) > 0 { // Print immediately
@@ -238,21 +233,23 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 }
 
 func Summary(cache map[string][]rune, finished_nodes, failed_nodes, all_nodes []string, buffer_size int, job_time []time.Duration) {
-	fmt.Println()
-	nodes := make([]string, 0, len(cache))
-	for node := range cache {
-		nodes = append(nodes, node)
-	}
-	sort.Strings(nodes)
-	for _, node := range nodes {
-		output := cache[node]
-		heading := fmt.Sprintf("---[%v]---", node)
-		fmt.Println(GetPaddingLine(heading))
-		if over_size := len(output) - buffer_size; over_size > 0 {
-			output = output[over_size:]
-			fmt.Printf("(Truncated)\n...")
+	if buffer_size > 0 {
+		fmt.Println()
+		nodes := make([]string, 0, len(cache))
+		for node := range cache {
+			nodes = append(nodes, node)
 		}
-		fmt.Println(string(output))
+		sort.Strings(nodes)
+		for _, node := range nodes {
+			output := cache[node]
+			heading := fmt.Sprintf("---[%v]---", node)
+			fmt.Println(GetPaddingLine(heading))
+			if over_size := len(output) - buffer_size; over_size > 0 {
+				output = output[over_size:]
+				fmt.Printf("(Truncated)\n...")
+			}
+			fmt.Println(string(output))
+		}
 	}
 	min, max, mean, mid, std_dev := GetTimeStat(job_time)
 	fmt.Println(GetPaddingLine(""))
