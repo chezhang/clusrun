@@ -24,10 +24,10 @@ func Job(args []string) {
 	fs.Parse(args)
 	job_ids := ParseJobIds(fs.Args())
 	if *cancel {
-		CancelJobs(*headnode, job_ids)
+		CancelJobs(ParseHeadnode(*headnode), job_ids)
 		return
 	}
-	jobs := GetJobs(*headnode, job_ids)
+	jobs := GetJobs(ParseHeadnode(*headnode), job_ids)
 	if len(*format) == 0 {
 		if len(job_ids) == 0 {
 			*format = "table"
