@@ -63,13 +63,15 @@ func (s *clusnode_server) SetHeadnodes(ctx context.Context, in *pb.SetHeadnodesR
 		results[headnode] = result
 	}
 	headnodes_reporting.Range(func(key, val interface{}) bool {
-		node := key.(string)
-		if _, ok := results[node]; !ok {
-			result := "Removed"
-			if err := RemoveHeadnode(node); err != nil {
-				result = err.Error()
+		if state := val.(*heartbeat_state); !state.Stopped {
+			node := key.(string)
+			if _, ok := results[node]; !ok {
+				result := "Removed"
+				if err := RemoveHeadnode(node); err != nil {
+					result = err.Error()
+				}
+				results[node] = result
 			}
-			results[node] = result
 		}
 		return true
 	})
