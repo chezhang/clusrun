@@ -26,7 +26,7 @@ func main() {
 	}
 	var err error
 	if console_width, _, err = terminal.GetSize(int(os.Stdout.Fd())); err != nil {
-		fmt.Printf("[Warning] Failed to get console width: %v", err)
+		fmt.Printf("[Warning] Failed to get console width: %v\n", err)
 	}
 	cmd, args := os.Args[1], os.Args[2:]
 	switch strings.ToLower(cmd) {
