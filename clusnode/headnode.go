@@ -141,7 +141,7 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	var job_on_nodes sync.Map
 	for _, node := range nodes {
 		wg.Add(1)
-		go StartJobOnNode(id, command, node, &job_on_nodes, out, &wg)
+		go StartJobOnNode(id, command, node, &job_on_nodes, out, &wg, true)
 	}
 
 	// Wait for all jobs finish
@@ -267,23 +267,25 @@ func ParseHost(display_name string) string {
 	}
 }
 
-func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb.Headnode_StartClusJobServer, wg *sync.WaitGroup) {
+func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb.Headnode_StartClusJobServer, wg *sync.WaitGroup, save_output bool) {
 	defer wg.Done()
 	log.Printf("Start job %v on node %v", id, node)
 
-	// Create file to save output
-	stdout, stderr := GetOutputFile(id, node)
 	var f_out, f_err *os.File
-	var err error
-	if f_out, err = os.Create(stdout); err == nil {
-		f_err, err = os.Create(stderr)
+	if save_output {
+		// Create file to save output
+		stdout, stderr := GetOutputFile(id, node)
+		var err error
+		if f_out, err = os.Create(stdout); err == nil {
+			f_err, err = os.Create(stderr)
+		}
+		if err != nil {
+			log.Printf("Failed to create output file for job %v node %v: %v", id, node, err)
+			return
+		}
+		defer f_out.Close()
+		defer f_err.Close()
 	}
-	if err != nil {
-		log.Printf("Failed to create output file for job %v node %v: %v", id, node, err)
-		return
-	}
-	defer f_out.Close()
-	defer f_err.Close()
 	job_on_nodes.Store(node, pb.JobState_Dispatching)
 
 	// Setup connection
@@ -303,13 +305,13 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 	if err != nil {
 		log.Printf("Failed to start job %v on node %v: %v", id, node, err)
 		job_on_nodes.Store(node, pb.JobState_Failed)
+		return
 	} else {
 		job_on_nodes.Store(node, pb.JobState_Running)
 	}
 
 	// Save and redirect output
 	exit_code := 0
-	has_stderr := false
 	failing_to_redirect := false
 	for {
 		output, err := stream.Recv()
@@ -322,11 +324,14 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 		}
 		if err != nil {
 			log.Printf("Failed to receive output of job %v on node %v: %v", id, node, err)
+			return
 		} else {
 			stdout, stderr := output.GetStdout(), output.GetStderr()
 			if stdout != "" {
-				if _, err := f_out.WriteString(stdout); err != nil {
-					log.Printf("Failed to save stdout of job %v on node %v: %v", id, node, err)
+				if save_output {
+					if _, err := f_out.WriteString(stdout); err != nil {
+						log.Printf("Failed to save stdout of job %v on node %v: %v", id, node, err)
+					}
 				}
 				if err := out.Send(&pb.StartClusJobReply{Node: node, Stdout: stdout}); err != nil {
 					if !failing_to_redirect {
@@ -338,9 +343,10 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 				}
 			}
 			if stderr != "" {
-				has_stderr = true
-				if _, err := f_err.WriteString(stderr); err != nil {
-					log.Printf("Failed to save stderr of job %v on node %v: %v", id, node, err)
+				if save_output {
+					if _, err := f_err.WriteString(stderr); err != nil {
+						log.Printf("Failed to save stderr of job %v on node %v: %v", id, node, err)
+					}
 				}
 				if err := out.Send(&pb.StartClusJobReply{Node: node, Stderr: stderr}); err != nil {
 					if !failing_to_redirect {
@@ -353,10 +359,6 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 			}
 			exit_code = int(output.GetExitCode())
 		}
-	}
-	if !has_stderr {
-		f_err.Close()
-		os.Remove(stderr)
 	}
 	job_on_nodes.Store(node, pb.JobState_Finished)
 }
