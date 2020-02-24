@@ -197,8 +197,9 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 			if len(content) == 0 { // EOF
 				state := "finished"
 				finished_nodes = append(finished_nodes, node)
-				if output.GetExitCode() != 0 {
-					state = "failed"
+				exit_code := output.GetExitCode()
+				if exit_code != 0 {
+					state = fmt.Sprintf("failed with exit code %v", exit_code)
 					failed_nodes = append(failed_nodes, node)
 				}
 				duration := time.Now().Sub(start_time)
