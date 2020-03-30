@@ -23,6 +23,8 @@ service Headnode {
   rpc GetOutput (GetOutputRequest) returns (stream GetOutputReply) {}
   rpc StartClusJob (StartClusJobRequest) returns (stream StartClusJobReply) {}
   rpc CancelClusJobs (CancelClusJobsRequest) returns (CancelClusJobsReply) {}
+  rpc SetConfigs (SetConfigsRequest) returns (SetConfigsReply) {}
+  rpc GetConfigs (Empty) returns (GetConfigsReply) {}
 }
 
 service Clusnode {
@@ -30,7 +32,8 @@ service Clusnode {
   rpc CancelJob (CancelJobRequest) returns (Empty) {}
   rpc Validate (ValidateRequest) returns (ValidateReply) {}
   rpc SetHeadnodes(SetHeadnodesRequest) returns (SetHeadnodesReply) {}
-  rpc GetHeadnodes(Empty) returns (GetHeadnodesReply) {}
+  rpc SetConfigs (SetConfigsRequest) returns (SetConfigsReply) {}
+  rpc GetConfigs (Empty) returns (GetConfigsReply) {}
 }
 
 message HeartbeatRequest {
@@ -43,9 +46,9 @@ message Empty {
 
 enum NodeState {
   Unknown = 0;
-  Ready = 1;
-  Error = 2;
-  Lost = 3;
+  Ready   = 1;
+  Error   = 2;
+  Lost    = 3;
 }
 
 message GetNodesRequest {
@@ -69,13 +72,13 @@ message GetJobsRequest {
 }
 
 enum JobState {
-  Created     = 0;
-  Dispatching = 1;
-  Running     = 2;
-  Canceling   = 3;
-  Finished    = 4;
-  Failed      = 5;
-  Canceled    = 6;
+  Created      = 0;
+  Dispatching  = 1;
+  Running      = 2;
+  Canceling    = 3;
+  Finished     = 4;
+  Failed       = 5;
+  Canceled     = 6;
   CancelFailed = 7;
 }
 
@@ -155,14 +158,29 @@ message ValidateReply {
   string nodename = 1;
 }
 
+enum SetHeadnodesMode {
+  Default = 0;
+  Add     = 1;
+  Remove  = 2;
+}
+
 message SetHeadnodesRequest {
   repeated string headnodes = 1;
+  SetHeadnodesMode mode = 2;
 }
 
 message SetHeadnodesReply {
   map<string, string> results = 1;
 }
 
-message GetHeadnodesReply {
-  map<string, bool> headnodes = 1;
+message SetConfigsRequest {
+  map<string, string> configs = 1;
+}
+
+message SetConfigsReply {
+  map<string, string> results = 1;
+}
+
+message GetConfigsReply {
+  map<string, string> configs = 1;
 }

@@ -17,10 +17,6 @@ import (
 	grpc "google.golang.org/grpc"
 )
 
-const (
-	heartbeat_expire_time = 5 * time.Second
-)
-
 var (
 	// TODO: use a sync.Map from node to id and 2 arrays instead, only lock when appending
 	reported_time   sync.Map
@@ -32,7 +28,7 @@ type headnode_server struct {
 }
 
 func (s *headnode_server) Heartbeat(ctx context.Context, in *pb.HeartbeatRequest) (*pb.Empty, error) {
-	defer LogPanic()
+	defer LogPanicBeforeExit()
 	nodename, host := in.GetNodename(), in.GetHost()
 	if strings.ContainsAny(nodename, "()") {
 		log.Printf("Invalid nodename in heartbeat: %v", nodename)
@@ -52,7 +48,7 @@ func (s *headnode_server) Heartbeat(ctx context.Context, in *pb.HeartbeatRequest
 	}
 	if last_report, ok := reported_time.Load(display_name); !ok {
 		log.Printf("First heartbeat from %v", display_name)
-	} else if time.Since(last_report.(time.Time)) > heartbeat_expire_time {
+	} else if HeartbeatTimeout(last_report.(time.Time)) {
 		log.Printf("%v reconnected. Last report time: %v", display_name, last_report)
 		validate_number.Delete(display_name)
 	}
@@ -62,7 +58,7 @@ func (s *headnode_server) Heartbeat(ctx context.Context, in *pb.HeartbeatRequest
 }
 
 func (s *headnode_server) GetNodes(ctx context.Context, in *pb.GetNodesRequest) (*pb.GetNodesReply, error) {
-	defer LogPanic()
+	defer LogPanicBeforeExit()
 	pattern, state, _ := in.GetPattern(), in.GetState(), in.GetGroups()
 	nodes := []*pb.GetNodesReply_Node{}
 	reported_time.Range(func(key interface{}, val interface{}) bool {
@@ -72,7 +68,7 @@ func (s *headnode_server) GetNodes(ctx context.Context, in *pb.GetNodesRequest) 
 		}
 		last_report := val.(time.Time)
 		node := pb.GetNodesReply_Node{Name: nodename}
-		if time.Since(last_report) > heartbeat_expire_time {
+		if HeartbeatTimeout(last_report) {
 			node.State = pb.NodeState_Lost
 		} else {
 			if number, ok := validate_number.Load(nodename); ok && number.(int) < 0 {
@@ -91,7 +87,7 @@ func (s *headnode_server) GetNodes(ctx context.Context, in *pb.GetNodesRequest) 
 }
 
 func (s *headnode_server) GetJobs(ctx context.Context, in *pb.GetJobsRequest) (*pb.GetJobsReply, error) {
-	defer LogPanic()
+	defer LogPanicBeforeExit()
 	job_ids := in.GetJobIds()
 	loaded_jobs, err := LoadJobs()
 	if err != nil {
@@ -108,7 +104,7 @@ func (s *headnode_server) GetJobs(ctx context.Context, in *pb.GetJobsRequest) (*
 }
 
 func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headnode_StartClusJobServer) error {
-	defer LogPanic()
+	defer LogPanicBeforeExit()
 	log.Println("Received create job request")
 	command, nodes, pattern := in.GetCommand(), in.GetNodes(), in.GetPattern()
 
@@ -141,7 +137,7 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	var job_on_nodes sync.Map
 	for _, node := range nodes {
 		wg.Add(1)
-		go StartJobOnNode(id, command, node, &job_on_nodes, out, &wg, true)
+		go StartJobOnNode(id, command, node, &job_on_nodes, out, &wg, Config_Headnode_StoreOutput.GetBool())
 	}
 
 	// Wait for all jobs finish
@@ -152,36 +148,30 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 }
 
 func (s *headnode_server) CancelClusJobs(ctx context.Context, in *pb.CancelClusJobsRequest) (*pb.CancelClusJobsReply, error) {
-	defer LogPanic()
+	defer LogPanicBeforeExit()
 	log.Println("Received cancel job request")
 	job_ids := in.GetJobIds()
-	db_jobs_lock.Lock()
-	jobs, err := LoadJobs()
+	result, to_cancel, err := CancelJobs(job_ids)
 	if err != nil {
 		return nil, err
 	}
-	if len(job_ids) == 0 && len(jobs) > 0 {
-		job_ids = map[int32]bool{jobs[len(jobs)-1].Id: false}
-	}
-	result := map[int32]pb.JobState{}
-	to_cancel := []int32{}
-	for i := range jobs {
-		if _, ok := job_ids[jobs[i].Id]; ok {
-			if IsActiveState(jobs[i].State) {
-				jobs[i].State = pb.JobState_Canceling
-				to_cancel = append(to_cancel, jobs[i].Id)
-			}
-			result[jobs[i].Id] = jobs[i].State
-		}
-	}
-	if err := SaveJobs(jobs); err != nil {
-		return nil, err
-	}
-	db_jobs_lock.Unlock()
 	for i := range to_cancel {
 		go CancelJob(to_cancel[i])
 	}
 	return &pb.CancelClusJobsReply{Result: result}, nil
+}
+
+func (s *headnode_server) SetConfigs(ctx context.Context, in *pb.SetConfigsRequest) (*pb.SetConfigsReply, error) {
+	defer LogPanicBeforeExit()
+	configs := in.GetConfigs()
+	results := SetNodeConfigs(Config_Headnode, configs)
+	return &pb.SetConfigsReply{Results: results}, nil
+}
+
+func (s *headnode_server) GetConfigs(ctx context.Context, in *pb.Empty) (*pb.GetConfigsReply, error) {
+	defer LogPanicBeforeExit()
+	results := GetNodeConfigs(Config_Headnode)
+	return &pb.GetConfigsReply{Configs: results}, nil
 }
 
 func Validate(display_name, nodename, host string) {
@@ -230,7 +220,7 @@ func GetValidNodes(nodes []string, pattern string) ([]string, []string) {
 	reported_time.Range(func(key interface{}, val interface{}) bool {
 		node := key.(string)
 		last_report := val.(time.Time)
-		if number, ok := validate_number.Load(node); ok && number.(int) < 0 && time.Since(last_report) <= heartbeat_expire_time {
+		if number, ok := validate_number.Load(node); ok && number.(int) < 0 && !HeartbeatTimeout(last_report) {
 			if matched, _ := regexp.MatchString(pattern, node); !matched {
 				return true
 			}
@@ -435,4 +425,8 @@ func CancelJobOnNode(id int32, node string, wg *sync.WaitGroup, result *sync.Map
 	} else {
 		result.Store(node, true)
 	}
+}
+
+func HeartbeatTimeout(last_report time.Time) bool {
+	return time.Since(last_report) > time.Duration(Config_Headnode_HeartbeatTimeoutSecond.GetInt())*time.Second
 }

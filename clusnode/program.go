@@ -42,6 +42,7 @@ func (p *program) Stop() error {
 	return nil
 }
 
+// TODO: rename inaccurate clusnode to node
 func (p *program) StartClusnode() {
 	_, port, _, err := ParseHostAddress(clusnode_host)
 	if err != nil {

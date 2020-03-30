@@ -3,6 +3,8 @@ package main
 import (
 	pb "../protobuf"
 	"./platform"
+	grpc "google.golang.org/grpc"
+
 	"context"
 	"errors"
 	"io"
@@ -15,14 +17,11 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	grpc "google.golang.org/grpc"
 )
 
 const (
-	heartbeat_interval = 1 * time.Second
-	connect_timeout    = 30 * time.Second
-	default_nodename   = "Unknown"
+	connect_timeout  = 30 * time.Second
+	default_nodename = "Unknown"
 )
 
 var (
@@ -42,60 +41,54 @@ type clusnode_server struct {
 }
 
 func (s *clusnode_server) Validate(ctx context.Context, in *pb.ValidateRequest) (*pb.ValidateReply, error) {
-	defer LogPanic()
+	defer LogPanicBeforeExit()
 	log.Printf("Received validation request from %v to %v", in.GetHeadnode(), in.GetClusnode())
 	return &pb.ValidateReply{Nodename: clusnode_name}, nil
 }
 
 func (s *clusnode_server) SetHeadnodes(ctx context.Context, in *pb.SetHeadnodesRequest) (*pb.SetHeadnodesReply, error) {
-	defer LogPanic()
-	headnodes := in.GetHeadnodes()
+	defer LogPanicBeforeExit()
+	headnodes, mode := in.GetHeadnodes(), in.GetMode()
 	results := make(map[string]string)
-	var err error
-	for _, headnode := range headnodes {
-		result := "Added"
-		if _, _, headnode, err = ParseHostAddress(headnode); err == nil {
-			err = AddHeadnode(headnode)
-		}
-		if err != nil {
-			result = err.Error()
-		}
-		results[headnode] = result
-	}
-	headnodes_reporting.Range(func(key, val interface{}) bool {
-		if state := val.(*heartbeat_state); !state.Stopped {
-			node := key.(string)
-			if _, ok := results[node]; !ok {
-				result := "Removed"
-				if err := RemoveHeadnode(node); err != nil {
-					result = err.Error()
-				}
-				results[node] = result
+	if mode == pb.SetHeadnodesMode_Remove {
+		for _, headnode := range headnodes {
+			if headnode, err := RemoveHeadnode(headnode); err != nil {
+				results[headnode] = err.Error()
+			} else {
+				results[headnode] = "Removed"
 			}
 		}
-		return true
-	})
-	log.Printf("SetHeadnodes result: %v", results)
-	SaveHeadnodes()
+	} else {
+		for _, headnode := range headnodes {
+			if headnode, err := AddHeadnode(headnode); err != nil {
+				results[headnode] = err.Error()
+			} else {
+				results[headnode] = "Added"
+			}
+		}
+		if mode == pb.SetHeadnodesMode_Default {
+			headnodes_reporting.Range(func(key, val interface{}) bool {
+				if state := val.(*heartbeat_state); !state.Stopped {
+					node := key.(string)
+					if _, ok := results[node]; !ok {
+						if headnode, err := RemoveHeadnode(node); err != nil {
+							results[headnode] = err.Error()
+						} else {
+							results[headnode] = "Removed"
+						}
+					}
+				}
+				return true
+			})
+		}
+	}
+	log.Printf("SetHeadnodes results: %v", results)
+	SaveNodeConfigs()
 	return &pb.SetHeadnodesReply{Results: results}, nil
 }
 
-func (s *clusnode_server) GetHeadnodes(ctx context.Context, in *pb.Empty) (*pb.GetHeadnodesReply, error) {
-	defer LogPanic()
-	headnodes := make(map[string]bool)
-	var err error = nil
-	headnodes_reporting.Range(func(key, val interface{}) bool {
-		if state := val.(*heartbeat_state); !state.Stopped {
-			headnodes[key.(string)] = state.Connected
-		}
-		return true
-	})
-	log.Printf("GetHeadnodes result: %v", headnodes)
-	return &pb.GetHeadnodesReply{Headnodes: headnodes}, err
-}
-
 func (s *clusnode_server) StartJob(in *pb.StartJobRequest, out pb.Clusnode_StartJobServer) error {
-	defer LogPanic()
+	defer LogPanicBeforeExit()
 	headnode, job_id, command := in.GetHeadnode(), in.GetJobId(), in.GetCommand()
 	log.Printf("Receive StartJob from headnode %v to start job %v with command %v", headnode, job_id, command)
 	job_label := GetJobLabel(headnode, int(job_id))
@@ -180,7 +173,7 @@ func (s *clusnode_server) StartJob(in *pb.StartJobRequest, out pb.Clusnode_Start
 }
 
 func (s *clusnode_server) CancelJob(ctx context.Context, in *pb.CancelJobRequest) (*pb.Empty, error) {
-	defer LogPanic()
+	defer LogPanicBeforeExit()
 	headnode, job_id := in.GetHeadnode(), in.GetJobId()
 	log.Printf("Receive CancelJob from headnode %v to cancel job %v", headnode, job_id)
 	job_label := GetJobLabel(headnode, int(job_id))
@@ -199,6 +192,19 @@ func (s *clusnode_server) CancelJob(ctx context.Context, in *pb.CancelJobRequest
 		log.Printf("Job %v is not running", job_label)
 	}
 	return &pb.Empty{}, nil
+}
+
+func (s *clusnode_server) SetConfigs(ctx context.Context, in *pb.SetConfigsRequest) (*pb.SetConfigsReply, error) {
+	defer LogPanicBeforeExit()
+	configs := in.GetConfigs()
+	results := SetNodeConfigs(Config_Clusnode, configs)
+	return &pb.SetConfigsReply{Results: results}, nil
+}
+
+func (s *clusnode_server) GetConfigs(ctx context.Context, in *pb.Empty) (*pb.GetConfigsReply, error) {
+	defer LogPanicBeforeExit()
+	results := GetNodeConfigs(Config_Clusnode)
+	return &pb.GetConfigsReply{Configs: results}, nil
 }
 
 func CleanupJob(job_label, cmd_file string) {
@@ -226,10 +232,11 @@ func CreateCommandFile(job_label, command string) (string, error) {
 	return file, nil
 }
 
-func AddHeadnode(headnode string) error {
+func AddHeadnode(headnode string) (added string, e error) {
 	_, _, headnode, err := ParseHostAddress(headnode)
 	if err != nil {
-		return errors.New("Failed to parse headnode host address: " + err.Error())
+		e = errors.New("Failed to parse headnode host address: " + err.Error())
+		return
 	}
 	if state, ok := headnodes_reporting.LoadOrStore(headnode, &heartbeat_state{Connected: false, Stopped: false}); ok {
 		s := state.(*heartbeat_state)
@@ -238,31 +245,55 @@ func AddHeadnode(headnode string) error {
 			s.Connected = false
 		} else {
 			if s.Connected {
-				return errors.New("Already connected")
+				e = errors.New("Already connected")
 			} else {
-				return errors.New("Connecting")
+				e = errors.New("Connecting")
 			}
+			return
 		}
 	} else {
-		go HeartBeat(clusnode_host, headnode)
+		go Heartbeat(clusnode_host, headnode)
 	}
-	return nil
+	added = headnode
+	return
 }
 
-func RemoveHeadnode(headnode string) error {
+func RemoveHeadnode(headnode string) (removed string, e error) {
 	_, _, headnode, err := ParseHostAddress(headnode)
 	if err != nil {
-		return errors.New("Failed to parse headnode host address: " + err.Error())
+		e = errors.New("Failed to parse headnode host address: " + err.Error())
+		return
 	}
 	if state, ok := headnodes_reporting.Load(headnode); ok {
-		state.(*heartbeat_state).Stopped = true
+		s := state.(*heartbeat_state)
+		if s.Stopped {
+			e = errors.New("Already removed")
+		} else {
+			state.(*heartbeat_state).Stopped = true
+			removed = headnode
+		}
 	} else {
-		return errors.New("Invalid headnode")
+		e = errors.New("Invalid headnode")
 	}
-	return nil
+	return
 }
 
-func HeartBeat(from, headnode string) {
+func GetHeadnodes() (connected, connecting []string) {
+	headnodes_reporting.Range(func(key, val interface{}) bool {
+		if state := val.(*heartbeat_state); !state.Stopped {
+			headnode := key.(string)
+			if state.Connected {
+				connected = append(connected, headnode)
+			} else {
+				connecting = append(connecting, headnode)
+			}
+		}
+		return true
+	})
+	return
+}
+
+func Heartbeat(from, headnode string) {
 	connected := false
 	stopped := true
 	for {
@@ -298,6 +329,6 @@ func HeartBeat(from, headnode string) {
 			log.Printf("Stop heartbeat from %v to %v", from, headnode)
 			stopped = true
 		}
-		time.Sleep(heartbeat_interval)
+		time.Sleep(time.Duration(Config_Clusnode_HeartbeatIntervalSecond.GetInt()) * time.Second)
 	}
 }

@@ -16,16 +16,14 @@ import (
 )
 
 var (
-	db_output_dir    string
-	db_cmd_dir       string
-	db_jobs          string
-	db_jobs_lock     sync.Mutex
-	db_max_job_count int
+	db_output_dir string
+	db_cmd_dir    string
+	db_jobs       string
+	db_jobs_lock  sync.Mutex
 )
 
 func InitDatabase() {
 	default_db_dir := executable_path + ".db"
-	db_max_job_count = 3 // TODO: get from config
 	headnode := filepath.Join(default_db_dir, strings.ReplaceAll(clusnode_host, ":", "."))
 	db_output_dir = headnode + ".output"
 	db_cmd_dir = headnode + ".command" // This directory is for clusnode not headnode, can be moved to other place when necessary
@@ -125,11 +123,12 @@ func CleanupOutputDir(job_id int) {
 }
 
 func CleanupOldJobs(jobs []pb.Job) ([]pb.Job, []int, error) {
+	max_job_count := Config_Headnode_MaxJobCount.GetInt()
 	active := []pb.Job{}
 	to_clean := []int{}
-	for remain := len(jobs) - db_max_job_count + 1; remain > 0; {
+	for remain := len(jobs) - max_job_count + 1; remain > 0; {
 		if len(jobs) == 0 {
-			message := fmt.Sprintf("Job count reaches the capacity %v and all %v jobs are active", db_max_job_count, len(active))
+			message := fmt.Sprintf("Job count reaches the capacity %v and all %v jobs are active", max_job_count, len(active))
 			return nil, nil, errors.New(message)
 		}
 		if IsActiveState(jobs[0].State) {
@@ -146,6 +145,7 @@ func CleanupOldJobs(jobs []pb.Job) ([]pb.Job, []int, error) {
 	return jobs, to_clean, nil
 }
 
+// TODO: Compress nodes
 func SaveJobs(jobs []pb.Job) error {
 	if json_string, err := json.MarshalIndent(jobs, "", "    "); err != nil {
 		return err
@@ -229,4 +229,31 @@ func EndJob(id int, from, to pb.JobState) error {
 	}
 	log.Printf("Job %v ended with state %v", id, to)
 	return nil
+}
+
+func CancelJobs(job_ids map[int32]bool) (map[int32]pb.JobState, []int32, error) {
+	db_jobs_lock.Lock()
+	defer db_jobs_lock.Unlock()
+	jobs, err := LoadJobs()
+	if err != nil {
+		return nil, nil, err
+	}
+	if len(job_ids) == 0 && len(jobs) > 0 {
+		job_ids = map[int32]bool{jobs[len(jobs)-1].Id: false}
+	}
+	result := map[int32]pb.JobState{}
+	to_cancel := []int32{}
+	for i := range jobs {
+		if _, ok := job_ids[jobs[i].Id]; ok {
+			if IsActiveState(jobs[i].State) {
+				jobs[i].State = pb.JobState_Canceling
+				to_cancel = append(to_cancel, jobs[i].Id)
+			}
+			result[jobs[i].Id] = jobs[i].State
+		}
+	}
+	if err := SaveJobs(jobs); err != nil {
+		return nil, nil, err
+	}
+	return result, to_cancel, nil
 }
