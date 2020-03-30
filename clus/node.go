@@ -15,32 +15,30 @@ func Node(args []string) {
 	fs := flag.NewFlagSet("clus node options", flag.ExitOnError)
 	headnode := fs.String("headnode", local_host, "specify the headnode to connect")
 	pattern := fs.String("pattern", "", "get nodes matching a certain regular expression pattern")
-	monitor := fs.Bool("monitor", false, "keep refreshing the node information")
-	filter_by_state := fs.String("state", "", "get nodes in certain state")
+	filter_by_state := fs.String("state", "", "get nodes in certain state (ready, error or lost)")
 	filter_by_groups := fs.String("groups", "", "get nodes in certain node groups")
-	group_by := fs.String("groupby", "", "group the nodes by state or node group")
+	group_by := fs.String("groupby", "", "group the nodes by name prefix, state or node group")
 	order_by := fs.String("orderby", "name", "sort the nodes by name, node groups or running jobs")
 	format := fs.String("format", "table", "format the nodes in table, list or group")
+	// prefix := fs.Int("prefix", 0, "merge the nodes with same name prefix of specified length (only in table format)")
+	// monitor := fs.Bool("monitor", false, "keep refreshing the node information")
+	// purge := fs.Bool("purge", false, "purge the lost nodes in headnode")
 	fs.Parse(args)
 	if len(fs.Args()) > 0 {
 		fmt.Println("Invalid parameter:", fs.Args())
 		return
 	}
-	if !*monitor {
-		nodes := GetNodes(ParseHeadnode(*headnode), *pattern, *filter_by_state, *filter_by_groups)
-		switch strings.ToLower(*format) {
-		case "table":
-			NodePrintTable(nodes, *group_by, *order_by)
-		case "list":
-			NodePrintList(nodes, *group_by, *order_by)
-		case "group":
-			NodePrintGroups(nodes, *group_by)
-		default:
-			fmt.Println("Invalid format option:", *format)
-			return
-		}
-	} else {
-		fmt.Println("Not implemented yet")
+	nodes := GetNodes(ParseHeadnode(*headnode), *pattern, *filter_by_state, *filter_by_groups)
+	switch strings.ToLower(*format) {
+	case "table":
+		NodePrintTable(nodes, *group_by, *order_by)
+	case "list":
+		NodePrintList(nodes, *group_by, *order_by)
+	case "group":
+		NodePrintGroups(nodes, *group_by)
+	default:
+		fmt.Println("Invalid format option:", *format)
+		return
 	}
 }
 
