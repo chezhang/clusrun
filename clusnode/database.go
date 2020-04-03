@@ -15,6 +15,11 @@ import (
 	"time"
 )
 
+const (
+	Label_Last_Job = -1
+	Label_All_Jobs = -2
+)
+
 var (
 	db_output_dir string
 	db_cmd_dir    string
@@ -238,14 +243,17 @@ func CancelJobs(job_ids map[int32]bool) (map[int32]pb.JobState, map[int32][]stri
 	if err != nil {
 		return nil, nil, err
 	}
-	if len(job_ids) == 0 && len(jobs) > 0 {
+	cancel_all := false
+	if _, ok := job_ids[Label_Last_Job]; ok && len(jobs) > 0 {
 		job_ids = map[int32]bool{jobs[len(jobs)-1].Id: false}
+	} else if _, ok := job_ids[Label_All_Jobs]; ok {
+		cancel_all = true
 	}
 	result := map[int32]pb.JobState{}
 	to_cancel := map[int32][]string{}
 	for i := range jobs {
 		id := jobs[i].Id
-		if _, ok := job_ids[id]; ok {
+		if _, ok := job_ids[id]; ok || cancel_all {
 			if IsActiveState(jobs[i].State) {
 				jobs[i].State = pb.JobState_Canceling
 				to_cancel[id] = jobs[i].Nodes

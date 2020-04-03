@@ -13,6 +13,11 @@ import (
 	"time"
 )
 
+const (
+	label_last_job = -1
+	label_all_jobs = -2
+)
+
 func Job(args []string) {
 	fs := flag.NewFlagSet("clus job options", flag.ExitOnError)
 	headnode := fs.String("headnode", local_host, "specify the headnode to connect")
@@ -22,14 +27,21 @@ func Job(args []string) {
 	// nodes := fs.String("nodes", "", "get info or output of jobs on certain nodes")
 	// state := fs.String("state", "", "get jobs in certain state")
 	fs.Parse(args)
+	no_job_args := len(fs.Args()) == 0
 	job_ids := ParseJobIds(fs.Args())
 	if *cancel {
+		if no_job_args {
+			job_ids[label_last_job] = false
+		}
 		CancelJobs(ParseHeadnode(*headnode), job_ids)
 		return
 	}
+	if no_job_args {
+		job_ids[label_all_jobs] = false
+	}
 	jobs := GetJobs(ParseHeadnode(*headnode), job_ids)
 	if len(*format) == 0 {
-		if len(job_ids) == 0 {
+		if no_job_args {
 			*format = "table"
 		} else {
 			*format = "list"
@@ -49,14 +61,34 @@ func Job(args []string) {
 func ParseJobIds(args []string) map[int32]bool {
 	job_ids := map[int32]bool{}
 	if len(args) > 0 {
-		for i := range args {
-			ids := strings.Split(args[i], ",")
-			for j := range ids {
-				if id, err := strconv.Atoi(strings.TrimSpace(ids[j])); err != nil || id <= 0 {
-					fmt.Println("Invalid job id:", ids[j])
-					os.Exit(0)
+		if len(args) == 1 && (args[0] == "*" || strings.ToLower(args[0]) == "all") {
+			job_ids[label_all_jobs] = false
+			return job_ids
+		}
+		for _, arg := range args {
+			for _, id := range strings.Split(arg, ",") {
+				var begin, end string
+				if parts := strings.Split(id, "-"); len(parts) == 1 {
+					begin = parts[0]
+					end = parts[0]
+				} else if len(parts) == 2 && len(parts[0]) > 0 && len(parts[1]) > 0 {
+					begin = parts[0]
+					end = parts[1]
 				} else {
-					job_ids[int32(id)] = false
+					fmt.Printf("Invalid job range: %q\n", id)
+					os.Exit(0)
+				}
+				ids := make([]int, 2)
+				for i, val := range []string{begin, end} {
+					if job_id, err := strconv.Atoi(strings.TrimSpace(val)); err != nil || job_id <= 0 {
+						fmt.Printf("Invalid job id: %q\n", val)
+						os.Exit(0)
+					} else {
+						ids[i] = job_id
+					}
+				}
+				for i := ids[0]; i <= ids[1]; i++ {
+					job_ids[int32(i)] = false
 				}
 			}
 		}
@@ -89,13 +121,18 @@ func CancelJobs(headnode string, job_ids map[int32]bool) {
 	if len(result) == 0 {
 		fmt.Println("No job is cancelled.")
 	} else {
-		for job, state := range result {
-			fmt.Printf("Job %v is %v\n", job, state)
+		ids := make([]int32, 0, len(result))
+		for id := range result {
+			ids = append(ids, id)
+		}
+		sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+		for _, id := range ids {
+			fmt.Printf("Job %v is %v\n", id, result[id])
 		}
 	}
 }
 
-func GetJobs(headnode string, ids map[int32]bool) (jobs []*pb.Job) {
+func GetJobs(headnode string, ids map[int32]bool) []*pb.Job {
 	// Setup connection
 	ctx, cancel := context.WithTimeout(context.Background(), connect_timeout)
 	defer cancel()
@@ -116,10 +153,10 @@ func GetJobs(headnode string, ids map[int32]bool) (jobs []*pb.Job) {
 		fmt.Println("Can not get job(s):", err)
 		os.Exit(0)
 	}
-	jobs = reply.GetJobs()
-	if len(ids) > 0 {
-		for i := range jobs {
-			ids[jobs[i].Id] = true
+	jobs := reply.GetJobs()
+	if _, ok := ids[label_all_jobs]; !ok && len(ids) > 0 {
+		for _, job := range jobs {
+			ids[job.Id] = true
 		}
 		no_jobs := []int{}
 		for k, v := range ids {
@@ -133,7 +170,7 @@ func GetJobs(headnode string, ids map[int32]bool) (jobs []*pb.Job) {
 			fmt.Println()
 		}
 	}
-	return
+	return jobs
 }
 
 func JobPrintTable(jobs []*pb.Job) {
@@ -177,17 +214,17 @@ func JobPrintTable(jobs []*pb.Job) {
 			state_width, strings.Repeat("-", max_state_length),
 			nodes_width, strings.Repeat("-", max_nodes_length),
 			command_width, strings.Repeat("-", max_command_length))
-		for i := range jobs {
-			command := jobs[i].Command
+		for _, job := range jobs {
+			command := job.Command
 			if len(command) > max_command_length {
 				padding := "..."
 				command = command[:max_command_length-len(padding)]
 				command += padding
 			}
 			fmt.Printf("%-*v%-*v%-*v%-*v\n",
-				id_width, jobs[i].Id,
-				state_width, jobs[i].State,
-				nodes_width, len(jobs[i].Nodes),
+				id_width, job.Id,
+				state_width, job.State,
+				nodes_width, len(job.Nodes),
 				command_width, command)
 		}
 		fmt.Println(strings.Repeat("-", id_width+state_width+nodes_width+command_width))
@@ -196,6 +233,7 @@ func JobPrintTable(jobs []*pb.Job) {
 }
 
 func JobPrintList(jobs []*pb.Job) {
+	fmt.Println(GetPaddingLine(""))
 	for _, job := range jobs {
 		fmt.Println("Id:", job.Id)
 		fmt.Println("State:", job.State)
@@ -203,24 +241,24 @@ func JobPrintList(jobs []*pb.Job) {
 		fmt.Println("End Time:", time.Unix(job.EndTime, 0))
 		fmt.Println("Nodes:", job.Nodes)
 		fmt.Println("Command:", job.Command)
-		fmt.Println()
+		fmt.Println(GetPaddingLine(""))
 	}
 	fmt.Println("Job count:", len(jobs))
 }
 
 func GetJobTableMaxLength(jobs []*pb.Job) (id, state, nodes, command int) {
-	for i := range jobs {
-		if length := len(strconv.Itoa(int(jobs[i].Id))); length > id {
+	for _, job := range jobs {
+		if length := len(strconv.Itoa(int(job.Id))); length > id {
 			id = length
 		}
-		if length := len(jobs[i].State.String()); length > state {
+		if length := len(job.State.String()); length > state {
 			state = length
 		}
-		if length := len(strconv.Itoa(len(jobs[i].Nodes))); length > nodes {
+		if length := len(strconv.Itoa(len(job.Nodes))); length > nodes {
 			nodes = length
 		}
-		jobs[i].Command = strings.ReplaceAll(strings.ReplaceAll(jobs[i].Command, "\r", `\r`), "\n", `\n`)
-		if length := len(jobs[i].Command); length > command {
+		job.Command = strings.ReplaceAll(strings.ReplaceAll(job.Command, "\r", `\r`), "\n", `\n`)
+		if length := len(job.Command); length > command {
 			command = length
 		}
 	}
