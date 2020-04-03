@@ -155,8 +155,8 @@ func (s *headnode_server) CancelClusJobs(ctx context.Context, in *pb.CancelClusJ
 	if err != nil {
 		return nil, err
 	}
-	for i := range to_cancel {
-		go CancelJob(to_cancel[i])
+	for id, nodes := range to_cancel {
+		go CancelJob(id, nodes)
 	}
 	return &pb.CancelClusJobsReply{Result: result}, nil
 }
@@ -353,19 +353,7 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 	job_on_nodes.Store(node, pb.JobState_Finished)
 }
 
-func CancelJob(id int32) {
-	jobs, err := LoadJobs()
-	if err != nil {
-		log.Printf("Failed to cancel job %v: %v", id, err)
-		return
-	}
-	nodes := []string{}
-	for i := range jobs {
-		if jobs[i].Id == id && jobs[i].State == pb.JobState_Canceling {
-			nodes = jobs[i].Nodes
-			break
-		}
-	}
+func CancelJob(id int32, nodes []string) {
 	wg := sync.WaitGroup{}
 	result := sync.Map{}
 	for i := range nodes {
@@ -383,7 +371,11 @@ func CancelJob(id int32) {
 	})
 	db_jobs_lock.Lock()
 	defer db_jobs_lock.Unlock()
-	jobs, err = LoadJobs()
+	jobs, err := LoadJobs()
+	if err != nil {
+		log.Printf("Failed to load jobs for saving cancellation result of job %v: %v", id, err)
+		return
+	}
 	for i := range jobs {
 		if jobs[i].Id == id {
 			if len(cancel_failed_nodes) == 0 {

@@ -231,7 +231,7 @@ func EndJob(id int, from, to pb.JobState) error {
 	return nil
 }
 
-func CancelJobs(job_ids map[int32]bool) (map[int32]pb.JobState, []int32, error) {
+func CancelJobs(job_ids map[int32]bool) (map[int32]pb.JobState, map[int32][]string, error) {
 	db_jobs_lock.Lock()
 	defer db_jobs_lock.Unlock()
 	jobs, err := LoadJobs()
@@ -242,14 +242,15 @@ func CancelJobs(job_ids map[int32]bool) (map[int32]pb.JobState, []int32, error) 
 		job_ids = map[int32]bool{jobs[len(jobs)-1].Id: false}
 	}
 	result := map[int32]pb.JobState{}
-	to_cancel := []int32{}
+	to_cancel := map[int32][]string{}
 	for i := range jobs {
-		if _, ok := job_ids[jobs[i].Id]; ok {
+		id := jobs[i].Id
+		if _, ok := job_ids[id]; ok {
 			if IsActiveState(jobs[i].State) {
 				jobs[i].State = pb.JobState_Canceling
-				to_cancel = append(to_cancel, jobs[i].Id)
+				to_cancel[id] = jobs[i].Nodes
 			}
-			result[jobs[i].Id] = jobs[i].State
+			result[id] = jobs[i].State
 		}
 	}
 	if err := SaveJobs(jobs); err != nil {
