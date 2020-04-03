@@ -82,9 +82,10 @@ func start(args []string) {
 	default_log_dir := executable_path + ".log"
 	default_log_file_label := filepath.Join(default_log_dir, "<start time>.log")
 	default_log_file := filepath.Join(default_log_dir, time.Now().Format("20060102150405.log"))
+	config_file := fs.String("config-file", default_config_file, "specify the config file for saving and loading settings")
+	headnodes := fs.String("headnodes", "", "specify the host addresses of headnodes for this clusnode to join in")
 	host := fs.String("host", local_host, "specify the host address of this clusnode")
 	log_file := fs.String("log-file", default_log_file_label, "specify the file for logging")
-	config_file := fs.String("config-file", default_config_file, "specify the config file for saving and loading settings")
 	pprof := fs.Bool("pprof", false, fmt.Sprintf("start HTTP server on %v for pprof", pprof_server))
 	fs.Parse(args)
 
@@ -128,10 +129,21 @@ func start(args []string) {
 	log.Printf("Config file: %v", node_config_file)
 	LoadNodeConfigs()
 
-	// Setup default headnode
+	// Setup headnodes
+	if *headnodes != "" {
+		log.Printf("Adding headnode(s): %v", *headnodes)
+		for _, headnode := range strings.Split(*headnodes, ",") {
+			if _, _, _, err := ParseHostAddress(headnode); err != nil {
+				log.Fatalf("Failed to parse headnode host address: %v", err)
+			} else {
+				AddHeadnode(headnode)
+			}
+		}
+		SaveNodeConfigs()
+	}
 	if connected, connecting := GetHeadnodes(); len(connected)+len(connecting) == 0 {
-		log.Printf("Adding default headnode: %v", local_host)
-		AddHeadnode(local_host)
+		log.Printf("Adding default headnode: %v", clusnode_host)
+		AddHeadnode(clusnode_host)
 		SaveNodeConfigs()
 	}
 
@@ -150,6 +162,8 @@ func config(args []string) {
 	}
 
 	command := strings.ToLower(args[0])
+	fs := flag.NewFlagSet("clusnode config options", flag.ExitOnError)
+	node := fs.String("node", local_host, "specify the node to config")
 	var mode pb.SetHeadnodesMode
 	switch strings.ToLower(command) {
 	case "add":
@@ -159,14 +173,14 @@ func config(args []string) {
 	case "del":
 		mode = pb.SetHeadnodesMode_Remove
 	case "get":
-		setOrGetConfig(false, nil, 0, nil, nil)
+		fs.Parse(args[1:])
+		setOrGetConfig(*node, false, nil, 0, nil, nil)
 		return
 	default:
 		displayConfigUsage()
 		return
 	}
 
-	fs := flag.NewFlagSet("clusnode config options", flag.ExitOnError)
 	headnodes := fs.String("headnodes", "", fmt.Sprintf("%s headnodes for this clusnode to join in", command))
 	var store_output, timeout, max_job_count, interval *string
 	if command == "set" {
@@ -199,7 +213,7 @@ func config(args []string) {
 	if *interval != "" {
 		clusnode_config[Config_Clusnode_HeartbeatIntervalSecond.Name] = *interval
 	}
-	setOrGetConfig(true, nodes, mode, headnode_config, clusnode_config)
+	setOrGetConfig(*node, true, nodes, mode, headnode_config, clusnode_config)
 }
 
 func displayConfigUsage() {
@@ -216,11 +230,18 @@ The commands are:
 `)
 }
 
-func setOrGetConfig(set bool, headnodes []string, mode pb.SetHeadnodesMode, headnode_config, clusnode_config map[string]string) {
+func setOrGetConfig(node string, set bool, headnodes []string, mode pb.SetHeadnodesMode, headnode_config, clusnode_config map[string]string) {
+	// Parse target node host
+	_, _, host, err := ParseHostAddress(node)
+	if err != nil {
+		fmt.Printf("Failed to parse the host of node to config: %v\n", err)
+		return
+	}
+
 	// Setup connection
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, local_host, grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.DialContext(ctx, host, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		fmt.Println("Can not connect:", err)
 		fmt.Println("Please ensure the node is started")
@@ -228,6 +249,7 @@ func setOrGetConfig(set bool, headnodes []string, mode pb.SetHeadnodesMode, head
 	}
 	defer conn.Close()
 
+	// Define print function
 	do := "Get"
 	if set {
 		do = "Set"

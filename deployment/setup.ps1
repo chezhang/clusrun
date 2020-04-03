@@ -45,4 +45,4 @@ Remove-Item install.bat
 Start-Sleep 1
 
 "$(Get-Date)  Set headnodes to $headnodes"
-.\clusnode.exe config set -headnodes "$headnodes"
+.\clusnode.exe config set -headnodes "$headnodes" -node "localhost:$port"

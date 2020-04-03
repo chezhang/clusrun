@@ -44,7 +44,7 @@ cd $location
 ./install.sh $port
 rm install.sh
 sleep 1
-./clusnode config set -headnodes "$headnodes"
+./clusnode config set -headnodes "$headnodes" -node "localhost:$port"
 
 add_to_path="export PATH=\$PATH:$location"
 grep -Fxq "$add_to_path" /etc/profile || echo $add_to_path >>/etc/profile
