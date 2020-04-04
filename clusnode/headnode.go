@@ -295,7 +295,7 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 	defer cancel()
 
 	// Start job on clusnode
-	stream, err := c.StartJob(ctx, &pb.StartJobRequest{JobId: int32(id), Command: command, Headnode: local_host})
+	stream, err := c.StartJob(ctx, &pb.StartJobRequest{JobId: int32(id), Command: command, Headnode: NodeHost})
 	if err != nil {
 		LogError("Failed to start job %v on node %v: %v", id, node, err)
 		job_on_nodes.Store(node, pb.JobState_Failed)
@@ -415,7 +415,7 @@ func CancelJobOnNode(id int32, node string, wg *sync.WaitGroup, result *sync.Map
 	defer cancel()
 
 	// Cancel job on clusnode
-	_, err = c.CancelJob(ctx, &pb.CancelJobRequest{JobId: id, Headnode: local_host})
+	_, err = c.CancelJob(ctx, &pb.CancelJobRequest{JobId: id, Headnode: NodeHost})
 	if err != nil {
 		LogError("Failed to cancel job %v on node %v: %v", id, node, err)
 	} else {
