@@ -24,8 +24,6 @@ const (
 )
 
 var (
-	clusnode_name       string
-	clusnode_host       string
 	headnodes_reporting sync.Map
 	jobs_pid            sync.Map
 )
@@ -42,7 +40,7 @@ type clusnode_server struct {
 func (s *clusnode_server) Validate(ctx context.Context, in *pb.ValidateRequest) (*pb.ValidateReply, error) {
 	defer LogPanicBeforeExit()
 	LogInfo("Received validation request from %v to %v", in.GetHeadnode(), in.GetClusnode())
-	return &pb.ValidateReply{Nodename: clusnode_name}, nil
+	return &pb.ValidateReply{Nodename: NodeName}, nil
 }
 
 func (s *clusnode_server) SetHeadnodes(ctx context.Context, in *pb.SetHeadnodesRequest) (*pb.SetHeadnodesReply, error) {
@@ -258,7 +256,7 @@ func AddHeadnode(headnode string) (added string, e error) {
 			return
 		}
 	} else {
-		go Heartbeat(clusnode_host, headnode)
+		go Heartbeat(NodeHost, headnode)
 	}
 	added = headnode
 	return
@@ -321,7 +319,7 @@ func Heartbeat(from, headnode string) {
 				}
 				c := pb.NewHeadnodeClient(conn)
 				ctx, cancel := context.WithTimeout(context.Background(), connect_timeout)
-				_, err = c.Heartbeat(ctx, &pb.HeartbeatRequest{Nodename: clusnode_name, Host: from})
+				_, err = c.Heartbeat(ctx, &pb.HeartbeatRequest{Nodename: NodeName, Host: from})
 				if err != nil {
 					LogError("Can not send heartbeat: %v", err)
 					connected = false

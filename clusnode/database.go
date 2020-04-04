@@ -29,7 +29,7 @@ var (
 func InitDatabase() {
 	LogInfo("Initializing database")
 	default_db_dir := executable_path + ".db"
-	headnode := filepath.Join(default_db_dir, strings.ReplaceAll(clusnode_host, ":", "."))
+	headnode := filepath.Join(default_db_dir, strings.ReplaceAll(NodeHost, ":", "."))
 	db_output_dir = headnode + ".output"
 	db_cmd_dir = headnode + ".command" // This directory is for clusnode not headnode, can be moved to other place when necessary
 	db_jobs = headnode + ".jobs"

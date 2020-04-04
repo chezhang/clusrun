@@ -103,21 +103,21 @@ func SaveNodeConfigs() {
 		}
 		config = make(map[string]interface{})
 	}
-	if _, ok := config[clusnode_host]; !ok {
-		config[clusnode_host] = make(map[string]interface{})
+	if _, ok := config[NodeHost]; !ok {
+		config[NodeHost] = make(map[string]interface{})
 	}
-	node_config, ok := config[clusnode_host].(map[string]interface{})
+	node_config, ok := config[NodeHost].(map[string]interface{})
 	if !ok {
-		LogWarning("Incorrect config format of node %v, rebuild it", clusnode_host)
+		LogWarning("Incorrect config format of node %v, rebuild it", NodeHost)
 		node_config = make(map[string]interface{})
-		config[clusnode_host] = node_config
+		config[NodeHost] = node_config
 	}
 	if _, ok := node_config[Config_Clusnode]; !ok {
 		node_config[Config_Clusnode] = make(map[string]interface{})
 	}
 	clusnode_config, ok := node_config[Config_Clusnode].(map[string]interface{})
 	if !ok {
-		LogWarning("Incorrect clusnode config format of node %v, rebuild it", clusnode_host)
+		LogWarning("Incorrect clusnode config format of node %v, rebuild it", NodeHost)
 		clusnode_config = make(map[string]interface{})
 		node_config[Config_Clusnode] = clusnode_config
 	}
@@ -126,7 +126,7 @@ func SaveNodeConfigs() {
 	}
 	headnode_config, ok := node_config[Config_Headnode].(map[string]interface{})
 	if !ok {
-		LogWarning("Incorrect headnode config format of node %v, rebuild it", clusnode_host)
+		LogWarning("Incorrect headnode config format of node %v, rebuild it", NodeHost)
 		headnode_config = make(map[string]interface{})
 		node_config[Config_Headnode] = headnode_config
 	}
@@ -161,13 +161,13 @@ func LoadNodeConfigs() {
 		}
 		return
 	}
-	if _, ok := config[clusnode_host]; !ok {
-		LogWarning("No config loaded for node %v, use default configs", clusnode_host)
+	if _, ok := config[NodeHost]; !ok {
+		LogWarning("No config loaded for node %v, use default configs", NodeHost)
 		return
 	}
-	node_config, ok := config[clusnode_host].(map[string]interface{})
+	node_config, ok := config[NodeHost].(map[string]interface{})
 	if !ok {
-		LogWarning("Incorrect config format of node %v, use default configs", clusnode_host)
+		LogWarning("Incorrect config format of node %v, use default configs", NodeHost)
 		return
 	}
 

@@ -24,7 +24,7 @@ func (program) Init(env svc.Environment) error {
 }
 
 func (p *program) Start() error {
-	go p.StartClusnode()
+	go p.startNodeService()
 	fmt.Println("Service started with pid", syscall.Getpid())
 	return nil
 }
@@ -41,11 +41,10 @@ func (p *program) Stop() error {
 	return nil
 }
 
-// TODO: rename inaccurate clusnode to node
-func (p *program) StartClusnode() {
-	_, port, _, err := ParseHostAddress(clusnode_host)
+func (p *program) startNodeService() {
+	_, port, _, err := ParseHostAddress(NodeHost)
 	if err != nil {
-		LogFatality("Failed to parse clusnode host address: %v", err)
+		LogFatality("Failed to parse node host address: %v", err)
 	}
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
@@ -54,7 +53,7 @@ func (p *program) StartClusnode() {
 	p.grpc_server = grpc.NewServer()
 	pb.RegisterClusnodeServer(p.grpc_server, &clusnode_server{})
 	pb.RegisterHeadnodeServer(p.grpc_server, &headnode_server{})
-	LogInfo("Clusnode %v starts listening on %v", clusnode_name, clusnode_host)
+	LogInfo("Node %v starts listening on %v", NodeName, NodeHost)
 	if err := p.grpc_server.Serve(lis); err != nil {
 		LogFatality("Failed to serve: %v", err)
 	}

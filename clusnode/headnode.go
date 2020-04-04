@@ -203,7 +203,7 @@ func Validate(display_name, nodename, host string) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 
-		reply, err := c.Validate(ctx, &pb.ValidateRequest{Headnode: clusnode_host, Clusnode: host})
+		reply, err := c.Validate(ctx, &pb.ValidateRequest{Headnode: NodeHost, Clusnode: host})
 		name := strings.ToUpper(reply.GetNodename())
 		if err != nil {
 			LogError("Validation failed: %v", err)

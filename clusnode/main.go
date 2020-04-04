@@ -29,11 +29,13 @@ var (
 	executable_path string
 	local_host      string
 	run_on_windows  bool
+	NodeHost        string
+	NodeName        string
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		displayClusnodeUsage()
+		displayNodeUsage()
 		return
 	}
 	initGlobalVars()
@@ -44,18 +46,18 @@ func main() {
 	case "config":
 		config(args)
 	default:
-		displayClusnodeUsage()
+		displayNodeUsage()
 	}
 }
 
-func displayClusnodeUsage() {
+func displayNodeUsage() {
 	fmt.Printf(`
 Usage: 
 	clusnode <command> [options]
 
 The commands are:
-	start           - start the clusnode
-	config          - configure the started clusnode
+	start           - start the node
+	config          - configure the started node
 
 `)
 }
@@ -70,8 +72,8 @@ func initGlobalVars() {
 	if err != nil {
 		LogFatality("Failed to get hostname: %v", err)
 	}
-	clusnode_name = strings.ToUpper(hostname)
-	local_host = clusnode_name + ":" + default_port
+	NodeName = strings.ToUpper(hostname)
+	local_host = NodeName + ":" + default_port
 
 	run_on_windows = runtime.GOOS == "windows"
 }
@@ -84,7 +86,7 @@ func start(args []string) {
 	default_log_file := filepath.Join(default_log_dir, time.Now().Format("20060102150405.log"))
 	config_file := fs.String("config-file", default_config_file, "specify the config file for saving and loading settings")
 	headnodes := fs.String("headnodes", "", "specify the host addresses of headnodes for this clusnode to join in")
-	host := fs.String("host", local_host, "specify the host address of this clusnode")
+	host := fs.String("host", local_host, "specify the host address of this headnode and clusnode")
 	log_file := fs.String("log-file", default_log_file_label, "specify the file for logging")
 	pprof := fs.Bool("pprof", false, fmt.Sprintf("start HTTP server on %v for pprof", pprof_server))
 	fs.Parse(args)
@@ -117,10 +119,10 @@ func start(args []string) {
 		}()
 	}
 
-	// Setup the host address of this clusnode
-	_, _, clusnode_host, err = ParseHostAddress(*host)
+	// Setup the host address of this node
+	_, _, NodeHost, err = ParseHostAddress(*host)
 	if err != nil {
-		LogFatality("Failed to parse clusnode host address: %v", err)
+		LogFatality("Failed to parse node host address: %v", err)
 	}
 
 	// Setup config file
@@ -140,12 +142,12 @@ func start(args []string) {
 		}
 	}
 	if connected, connecting := GetHeadnodes(); len(connected)+len(connecting) == 0 {
-		LogInfo("Adding default headnode: %v", clusnode_host)
-		AddHeadnode(clusnode_host)
+		LogInfo("Adding default headnode: %v", NodeHost)
+		AddHeadnode(NodeHost)
 	}
 	SaveNodeConfigs()
 
-	// Start clusnode service
+	// Start node service
 	prg := &program{}
 	if err := svc.Run(prg); err != nil {
 		LogFatality("Failed to start service: %v", err)
@@ -322,7 +324,7 @@ func ParseHostAddress(address string) (hostname, port, host string, err error) {
 			return
 		}
 		if hostname == "LOCALHOST" {
-			hostname = strings.ToUpper(clusnode_name)
+			hostname = strings.ToUpper(NodeName)
 		}
 		if len(segs) == 2 {
 			temp_port, temp_err := strconv.ParseUint(segs[1], 10, 16)
