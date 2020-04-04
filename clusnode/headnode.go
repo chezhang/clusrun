@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"math"
 	"os"
 	"regexp"
@@ -30,13 +29,13 @@ type headnode_server struct {
 func (s *headnode_server) Heartbeat(ctx context.Context, in *pb.HeartbeatRequest) (*pb.Empty, error) {
 	defer LogPanicBeforeExit()
 	nodename, host := in.GetNodename(), in.GetHost()
-	if strings.ContainsAny(nodename, "()") {
-		log.Printf("Invalid nodename in heartbeat: %v", nodename)
+	if strings.ContainsAny(nodename, "()") { // TODO: support nodename containing "(" or ")" by using a map of host -> display name
+		LogError("Invalid nodename in heartbeat: %v", nodename)
 		return &pb.Empty{}, errors.New("Invalid nodename: " + nodename)
 	}
 	hostname, port, host, err := ParseHostAddress(host)
 	if err != nil {
-		log.Printf("Invalid host format in heartbeat: %v", host)
+		LogError("Invalid host format in heartbeat: %v", host)
 		return &pb.Empty{}, errors.New("Invalid host format: " + host)
 	}
 	nodename = strings.ToUpper(nodename)
@@ -47,9 +46,9 @@ func (s *headnode_server) Heartbeat(ctx context.Context, in *pb.HeartbeatRequest
 		display_name = nodename + "(" + host + ")"
 	}
 	if last_report, ok := reported_time.Load(display_name); !ok {
-		log.Printf("First heartbeat from %v", display_name)
+		LogInfo("First heartbeat from %v", display_name)
 	} else if HeartbeatTimeout(last_report.(time.Time)) {
-		log.Printf("%v reconnected. Last report time: %v", display_name, last_report)
+		LogInfo("%v reconnected. Last report time: %v", display_name, last_report)
 		validate_number.Delete(display_name)
 	}
 	reported_time.Store(display_name, time.Now())
@@ -82,7 +81,7 @@ func (s *headnode_server) GetNodes(ctx context.Context, in *pb.GetNodesRequest) 
 		}
 		return true
 	})
-	log.Printf("GetNodes result:\n%v", nodes)
+	LogInfo("GetNodes result: %v", nodes)
 	return &pb.GetNodesReply{Nodes: nodes}, nil
 }
 
@@ -103,35 +102,35 @@ func (s *headnode_server) GetJobs(ctx context.Context, in *pb.GetJobsRequest) (*
 			jobs = append(jobs, &loaded_jobs[i])
 		}
 	}
-	log.Printf("GetJobs result:\n%v", jobs)
+	LogInfo("GetJobs result:\n%v", jobs)
 	return &pb.GetJobsReply{Jobs: jobs}, nil
 }
 
 func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headnode_StartClusJobServer) error {
 	defer LogPanicBeforeExit()
-	log.Println("Received create job request")
 	command, nodes, pattern := in.GetCommand(), in.GetNodes(), in.GetPattern()
+	LogInfo("Creating new job with command: %v", command)
 
 	// Get nodes
 	nodes, invalid_nodes := GetValidNodes(nodes, pattern)
 	if len(invalid_nodes) > 0 {
-		log.Printf("Invalid nodes to create job: %v", invalid_nodes)
+		LogWarning("Invalid nodes to create job: %v", invalid_nodes)
 		return errors.New(fmt.Sprintf("Invalid nodes (%v): %v", len(invalid_nodes), invalid_nodes))
 	}
 	if len(nodes) == 0 {
 		message := "No valid nodes to create job"
-		log.Printf(message)
+		LogWarning(message)
 		return errors.New(message)
 	}
 
 	// Create job
 	id, err := CreateNewJob(command, nodes)
 	if err != nil {
-		log.Printf("Failed to create job: %v", err)
+		LogError("Failed to create job: %v", err)
 		return err
 	}
 	if err := out.Send(&pb.StartClusJobReply{JobId: int32(id), Nodes: nodes}); err != nil {
-		log.Printf("Failed to send job id of job %v to client: %v", id, err)
+		LogError("Failed to send job id of job %v to client: %v", id, err)
 		return err
 	}
 
@@ -153,15 +152,16 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 
 func (s *headnode_server) CancelClusJobs(ctx context.Context, in *pb.CancelClusJobsRequest) (*pb.CancelClusJobsReply, error) {
 	defer LogPanicBeforeExit()
-	log.Println("Received cancel job request")
 	job_ids := in.GetJobIds()
 	result, to_cancel, err := CancelJobs(job_ids)
 	if err != nil {
+		LogError("Failed to cancel jobs: %v", err)
 		return nil, err
 	}
 	for id, nodes := range to_cancel {
 		go CancelJob(id, nodes)
 	}
+	LogInfo("CancelClusJobs result: %v", result)
 	return &pb.CancelClusJobsReply{Result: result}, nil
 }
 
@@ -189,30 +189,30 @@ func Validate(display_name, nodename, host string) {
 			}
 			time.Sleep(time.Duration(delay) * time.Second)
 		}
-		log.Printf("Start validating clusnode %v", display_name)
+		LogInfo("Start validating clusnode %v", display_name)
 		conn, err := grpc.Dial(host, grpc.WithInsecure(), grpc.WithBlock())
 		if err != nil {
-			log.Printf("Can not connect: %v", err)
+			LogError("Can not connect: %v", err)
 			validate_number.Store(display_name, number+1)
 			return
 		}
 		defer conn.Close()
 
 		c := pb.NewClusnodeClient(conn)
-		log.Printf("Connected to clusnode host %v", host)
+		LogInfo("Connected to clusnode host %v", host)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 
 		reply, err := c.Validate(ctx, &pb.ValidateRequest{Headnode: clusnode_host, Clusnode: host})
 		name := strings.ToUpper(reply.GetNodename())
 		if err != nil {
-			log.Printf("Validation failed: %v", err)
+			LogError("Validation failed: %v", err)
 			validate_number.Store(display_name, number+1)
-		} else if name != nodename { // in case a clusnode uses a wrong host parameter
-			log.Printf("Validation failed: expect nodename %v, replied nodename %v", nodename, name)
+		} else if name != nodename { // in case a clusnode is started with a wrong but reachable host
+			LogError("Validation failed: expect nodename %v, replied nodename %v", nodename, name)
 			validate_number.Store(display_name, 10)
 		} else {
-			log.Printf("Clusnode %v is validated that being hosted by %v", display_name, host)
+			LogInfo("Clusnode %v is validated that being hosted by %v", display_name, host)
 			validate_number.Store(display_name, -1)
 		}
 	}
@@ -263,7 +263,7 @@ func ParseHost(display_name string) string {
 
 func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb.Headnode_StartClusJobServer, wg *sync.WaitGroup, save_output bool) {
 	defer wg.Done()
-	log.Printf("Start job %v on node %v", id, node)
+	LogInfo("Start job %v on node %v", id, node)
 
 	var f_out, f_err *os.File
 	if save_output {
@@ -274,7 +274,7 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 			f_err, err = os.Create(stderr)
 		}
 		if err != nil {
-			log.Printf("Failed to create output file for job %v node %v: %v", id, node, err)
+			LogError("Failed to create output file for job %v node %v: %v", id, node, err)
 			return
 		}
 		defer f_out.Close()
@@ -286,7 +286,7 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 	ctx, cancel := context.WithTimeout(context.Background(), connect_timeout)
 	conn, err := grpc.DialContext(ctx, ParseHost(node), grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
-		log.Printf("Can not connect node %v in %v: %v", node, connect_timeout, err)
+		LogError("Can not connect node %v in %v: %v", node, connect_timeout, err)
 		return
 	}
 	defer conn.Close()
@@ -297,7 +297,7 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 	// Start job on clusnode
 	stream, err := c.StartJob(ctx, &pb.StartJobRequest{JobId: int32(id), Command: command, Headnode: local_host})
 	if err != nil {
-		log.Printf("Failed to start job %v on node %v: %v", id, node, err)
+		LogError("Failed to start job %v on node %v: %v", id, node, err)
 		job_on_nodes.Store(node, pb.JobState_Failed)
 		return
 	} else {
@@ -310,26 +310,26 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 	for {
 		output, err := stream.Recv()
 		if err == io.EOF {
-			log.Printf("Job %v on node %v finished with exit code %v", id, node, exit_code)
+			LogInfo("Job %v on node %v finished with exit code %v", id, node, exit_code)
 			if err := out.Send(&pb.StartClusJobReply{Node: node, ExitCode: int32(exit_code)}); err != nil {
-				log.Printf("Failed to redirect exit code of job %v on node %v: %v", id, node, err)
+				LogWarning("Failed to redirect exit code of job %v on node %v: %v", id, node, err)
 			}
 			break
 		}
 		if err != nil {
-			log.Printf("Failed to receive output of job %v on node %v: %v", id, node, err)
+			LogError("Failed to receive output of job %v on node %v: %v", id, node, err)
 			return
 		} else {
 			stdout, stderr := output.GetStdout(), output.GetStderr()
 			if stdout != "" {
 				if save_output {
 					if _, err := f_out.WriteString(stdout); err != nil {
-						log.Printf("Failed to save stdout of job %v on node %v: %v", id, node, err)
+						LogError("Failed to save stdout of job %v on node %v: %v", id, node, err)
 					}
 				}
 				if err := out.Send(&pb.StartClusJobReply{Node: node, Stdout: stdout}); err != nil {
 					if !failing_to_redirect {
-						log.Printf("Failed to redirect stdout of job %v on node %v: %v", id, node, err)
+						LogWarning("Failed to redirect stdout of job %v on node %v: %v", id, node, err)
 					}
 					failing_to_redirect = true
 				} else {
@@ -339,12 +339,12 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 			if stderr != "" {
 				if save_output {
 					if _, err := f_err.WriteString(stderr); err != nil {
-						log.Printf("Failed to save stderr of job %v on node %v: %v", id, node, err)
+						LogError("Failed to save stderr of job %v on node %v: %v", id, node, err)
 					}
 				}
 				if err := out.Send(&pb.StartClusJobReply{Node: node, Stderr: stderr}); err != nil {
 					if !failing_to_redirect {
-						log.Printf("Failed to redirect stderr of job %v on node %v: %v", id, node, err)
+						LogWarning("Failed to redirect stderr of job %v on node %v: %v", id, node, err)
 					}
 					failing_to_redirect = true
 				} else {
@@ -377,24 +377,24 @@ func CancelJob(id int32, nodes []string) {
 	defer db_jobs_lock.Unlock()
 	jobs, err := LoadJobs()
 	if err != nil {
-		log.Printf("Failed to load jobs for saving cancellation result of job %v: %v", id, err)
+		LogError("Failed to load jobs for saving cancellation result of job %v: %v", id, err)
 		return
 	}
 	for i := range jobs {
 		if jobs[i].Id == id {
 			if len(cancel_failed_nodes) == 0 {
 				jobs[i].State = pb.JobState_Canceled
-				log.Printf("Job %v is canceled", id)
+				LogInfo("Job %v is canceled", id)
 			} else {
 				jobs[i].State = pb.JobState_CancelFailed
 				jobs[i].CancelFailedNodes = cancel_failed_nodes
-				log.Printf("Cancellation of job %v failed for nodes: %v", id, cancel_failed_nodes)
+				LogWarning("Cancellation of job %v failed for nodes: %v", id, cancel_failed_nodes)
 			}
 			break
 		}
 	}
 	if err := SaveJobs(jobs); err != nil {
-		log.Printf("Failed to save cancellation result of job %v: %v", id, err)
+		LogError("Failed to save cancellation result of job %v: %v", id, err)
 		return
 	}
 }
@@ -406,7 +406,7 @@ func CancelJobOnNode(id int32, node string, wg *sync.WaitGroup, result *sync.Map
 	ctx, cancel := context.WithTimeout(context.Background(), connect_timeout)
 	conn, err := grpc.DialContext(ctx, ParseHost(node), grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
-		log.Printf("Can not connect node %v in %v: %v", node, connect_timeout, err)
+		LogError("Can not connect node %v in %v: %v", node, connect_timeout, err)
 		return
 	}
 	defer conn.Close()
@@ -417,7 +417,7 @@ func CancelJobOnNode(id int32, node string, wg *sync.WaitGroup, result *sync.Map
 	// Cancel job on clusnode
 	_, err = c.CancelJob(ctx, &pb.CancelJobRequest{JobId: id, Headnode: local_host})
 	if err != nil {
-		log.Printf("Failed to cancel job %v on node %v: %v", id, node, err)
+		LogError("Failed to cancel job %v on node %v: %v", id, node, err)
 	} else {
 		result.Store(node, true)
 	}

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"github.com/juju/fslock"
 	"io/ioutil"
-	"log"
+	"os"
 	"reflect"
 	"strconv"
 	"strings"
@@ -64,6 +64,10 @@ var (
 		Name:  "store output",
 		Value: true,
 	}
+	Config_LogGoId = ConfigItem{
+		Name:  "add go id in logs",
+		Value: false,
+	}
 
 	configs_clusnode = map[string]*ConfigItem{
 		Config_Clusnode_HeartbeatIntervalSecond.Name: &Config_Clusnode_HeartbeatIntervalSecond,
@@ -73,15 +77,18 @@ var (
 		Config_Headnode_MaxJobCount.Name:            &Config_Headnode_MaxJobCount,
 		Config_Headnode_StoreOutput.Name:            &Config_Headnode_StoreOutput,
 	}
+	configs_common = []*ConfigItem{
+		&Config_LogGoId,
+	}
 )
 
 func SaveNodeConfigs() {
-	log.Printf("Saving node configs")
+	LogInfo("Saving node configs")
 
 	// Use the process file as a lock to enable multi-process access of the config file
 	lock := fslock.New(executable_path)
 	if err := lock.LockWithTimeout(3 * time.Second); err != nil {
-		log.Printf("Failed to lock the process file %v when saving node configs", executable_path)
+		LogError("Failed to lock the process file %v when saving node configs", executable_path)
 		return
 	}
 	defer lock.Unlock()
@@ -89,7 +96,11 @@ func SaveNodeConfigs() {
 	// Read config file and check format
 	config, err := readConfigFile()
 	if err != nil {
-		log.Printf("Failed to load config file: %v\nRebuild it", err)
+		if os.IsNotExist(err) {
+			LogInfo("Config file doesn't exist, build it")
+		} else {
+			LogWarning("Failed to parse config file: %v\nRebuild it", err)
+		}
 		config = make(map[string]interface{})
 	}
 	if _, ok := config[clusnode_host]; !ok {
@@ -97,7 +108,7 @@ func SaveNodeConfigs() {
 	}
 	node_config, ok := config[clusnode_host].(map[string]interface{})
 	if !ok {
-		log.Printf("Failed to parse config of node %v, rebuild it", clusnode_host)
+		LogWarning("Incorrect config format of node %v, rebuild it", clusnode_host)
 		node_config = make(map[string]interface{})
 		config[clusnode_host] = node_config
 	}
@@ -106,7 +117,7 @@ func SaveNodeConfigs() {
 	}
 	clusnode_config, ok := node_config[Config_Clusnode].(map[string]interface{})
 	if !ok {
-		log.Printf("Failed to parse clusnode config of node %v, rebuild it", clusnode_host)
+		LogWarning("Incorrect clusnode config format of node %v, rebuild it", clusnode_host)
 		clusnode_config = make(map[string]interface{})
 		node_config[Config_Clusnode] = clusnode_config
 	}
@@ -115,7 +126,7 @@ func SaveNodeConfigs() {
 	}
 	headnode_config, ok := node_config[Config_Headnode].(map[string]interface{})
 	if !ok {
-		log.Printf("Failed to parse headnode config of node %v, rebuild it", clusnode_host)
+		LogWarning("Incorrect headnode config format of node %v, rebuild it", clusnode_host)
 		headnode_config = make(map[string]interface{})
 		node_config[Config_Headnode] = headnode_config
 	}
@@ -129,45 +140,53 @@ func SaveNodeConfigs() {
 	for _, config := range configs_headnode {
 		headnode_config[config.Name] = config.Value
 	}
+	for _, config := range configs_common {
+		node_config[config.Name] = config.Value
+	}
 
 	// Save config file
 	if err = saveConfigFile(config); err != nil {
-		log.Printf("Failed to save config file: %v", err)
+		LogError("Failed to save config file: %v", err)
 	}
 }
 
 func LoadNodeConfigs() {
-	log.Printf("Loading node configs")
+	LogInfo("Loading node configs")
 	config, err := readConfigFile()
 	if err != nil {
-		log.Printf("Failed to load config file: %v", err)
+		if os.IsNotExist(err) {
+			LogInfo("Config file doesn't exist, use default configs")
+		} else {
+			LogFatality("Failed to parse config file: %v", err)
+		}
 		return
 	}
 	if _, ok := config[clusnode_host]; !ok {
-		log.Printf("No config loaded for node: %v", clusnode_host)
+		LogWarning("No config loaded for node %v, use default configs", clusnode_host)
 		return
 	}
 	node_config, ok := config[clusnode_host].(map[string]interface{})
 	if !ok {
-		log.Printf("Failed to parse config of node %v", clusnode_host)
+		LogWarning("Incorrect config format of node %v, use default configs", clusnode_host)
 		return
 	}
 
 	if clusnode_config, ok := node_config[Config_Clusnode].(map[string]interface{}); ok {
 		if headnodes, ok := clusnode_config[Config_Clusnode_Headnodes_Name].([]interface{}); ok {
-			log.Printf("Add loaded headnode(s): %v", headnodes)
+			LogInfo("Adding loaded headnode(s): %v", headnodes)
 			for _, headnode := range headnodes {
 				if h, ok := headnode.(string); !ok {
-					log.Printf("Can not parse headnode as string: %v", headnode)
+					LogError("Headnode %v is not string format", headnode)
+					h = fmt.Sprintf("%v", headnode)
 				} else if _, err := AddHeadnode(h); err != nil {
-					log.Printf(err.Error())
+					LogError("Failed to add headnode: %v", err)
 				}
 			}
 		}
 		for _, config := range configs_clusnode {
 			if value, ok := clusnode_config[config.Name]; ok {
 				if err := config.Set(value); err != nil {
-					log.Printf("Failed to set %q for clusnode to %v: %v", config.Name, value, err)
+					LogError("Failed to set %q for clusnode to %v: %v", config.Name, value, err)
 				}
 			}
 		}
@@ -176,22 +195,29 @@ func LoadNodeConfigs() {
 		for _, config := range configs_headnode {
 			if value, ok := headnode_config[config.Name]; ok {
 				if err := config.Set(value); err != nil {
-					log.Printf("Failed to set %q for headnode to %v: %v", config.Name, value, err)
+					LogError("Failed to set %q for headnode to %v: %v", config.Name, value, err)
 				}
+			}
+		}
+	}
+	for _, config := range configs_common {
+		if value, ok := node_config[config.Name]; ok {
+			if err := config.Set(value); err != nil {
+				LogError("Failed to set %q to %v: %v", config.Name, value, err)
 			}
 		}
 	}
 }
 
 func SetNodeConfigs(role string, configs map[string]string) map[string]string {
-	log.Printf("SetConfigs: %v", configs)
+	LogInfo("SetConfigs: %v", configs)
 	var configs_role map[string]*ConfigItem
 	if role == Config_Clusnode {
 		configs_role = configs_clusnode
 	} else if role == Config_Headnode {
 		configs_role = configs_headnode
 	} else {
-		log.Panicf("Invalid config role: %v", role)
+		panic(fmt.Sprintf("Invalid config role: %v", role))
 	}
 	results := make(map[string]string)
 	for k, v := range configs {
@@ -203,7 +229,7 @@ func SetNodeConfigs(role string, configs map[string]string) map[string]string {
 			results[k] = v
 		}
 	}
-	log.Printf("SetConfigs results: %v", results)
+	LogInfo("SetConfigs results: %v", results)
 	SaveNodeConfigs()
 	return results
 }
@@ -223,12 +249,12 @@ func GetNodeConfigs(role string) map[string]string {
 	} else if role == Config_Headnode {
 		configs_role = configs_headnode
 	} else {
-		log.Panicf("Invalid config role: %v", role)
+		panic(fmt.Sprintf("Invalid config role: %v", role))
 	}
 	for _, config := range configs_role {
 		configs[config.Name] = fmt.Sprintf("%v", config.Value)
 	}
-	log.Printf("GetConfigs results: %v", configs)
+	LogInfo("GetConfigs results: %v", configs)
 	return configs
 }
 
@@ -265,13 +291,13 @@ func (c *ConfigItem) Set(value interface{}) error {
 		}
 	}
 	c.Value = v
-	log.Printf("Set config %q to %v", c.Name, v)
+	LogInfo("Set config %q to %v", c.Name, v)
 	return nil
 }
 
 func (c *ConfigItem) GetBool() (value bool) {
 	if v, err := convertType(c.Value, reflect.Bool); err != nil {
-		log.Panic(err.Error())
+		panic(err)
 	} else {
 		value = v.(bool)
 	}
@@ -280,7 +306,7 @@ func (c *ConfigItem) GetBool() (value bool) {
 
 func (c *ConfigItem) GetInt() (value int) {
 	if v, err := convertType(c.Value, reflect.Int); err != nil {
-		log.Panic(err.Error())
+		panic(err)
 	} else {
 		value = v.(int)
 	}

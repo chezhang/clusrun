@@ -63,12 +63,12 @@ The commands are:
 func initGlobalVars() {
 	var err error
 	if executable_path, err = os.Executable(); err != nil {
-		log.Fatalf("Failed to get executable path: %v", err)
+		LogFatality("Failed to get executable path: %v", err)
 	}
 
 	hostname, err := os.Hostname()
 	if err != nil {
-		log.Fatalf("Failed to get hostname: %v", err)
+		LogFatality("Failed to get hostname: %v", err)
 	}
 	clusnode_name = strings.ToUpper(hostname)
 	local_host = clusnode_name + ":" + default_port
@@ -92,13 +92,13 @@ func start(args []string) {
 	// Setup log file
 	if *log_file == default_log_file_label {
 		if err := os.MkdirAll(default_log_dir, 0644); err != nil {
-			log.Fatalf("Error creating log dir: %v", err)
+			LogFatality("Failed to create log dir: %v", err)
 		}
 		*log_file = default_log_file
 	}
 	f, err := os.OpenFile(*log_file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
-		log.Fatalf("Error opening log file: %v", err)
+		LogFatality("Failed to open log file: %v", err)
 	}
 	defer f.Close()
 	log.SetOutput(f)
@@ -109,11 +109,10 @@ func start(args []string) {
 
 	// Start HTTP server for pprof
 	if *pprof {
-
-		log.Printf("Start pprof HTTP server on %v", pprof_server)
+		LogInfo("Start pprof HTTP server on %v", pprof_server)
 		go func() {
 			if err := http.ListenAndServe(pprof_server, nil); err != nil {
-				log.Printf("Failed to start pprof HTTP server")
+				LogError("Failed to start pprof HTTP server")
 			}
 		}()
 	}
@@ -121,38 +120,37 @@ func start(args []string) {
 	// Setup the host address of this clusnode
 	_, _, clusnode_host, err = ParseHostAddress(*host)
 	if err != nil {
-		log.Fatalf("Failed to parse clusnode host address: %v", err)
+		LogFatality("Failed to parse clusnode host address: %v", err)
 	}
 
 	// Setup config file
 	node_config_file = *config_file
-	log.Printf("Config file: %v", node_config_file)
+	LogInfo("Config file: %v", node_config_file)
 	LoadNodeConfigs()
 
 	// Setup headnodes
 	if *headnodes != "" {
-		log.Printf("Adding headnode(s): %v", *headnodes)
+		LogInfo("Adding headnode(s): %v", *headnodes)
 		for _, headnode := range strings.Split(*headnodes, ",") {
 			if _, _, _, err := ParseHostAddress(headnode); err != nil {
-				log.Fatalf("Failed to parse headnode host address: %v", err)
+				LogFatality("Failed to parse headnode host address: %v", err)
 			} else {
 				AddHeadnode(headnode)
 			}
 		}
-		SaveNodeConfigs()
 	}
 	if connected, connecting := GetHeadnodes(); len(connected)+len(connecting) == 0 {
-		log.Printf("Adding default headnode: %v", clusnode_host)
+		LogInfo("Adding default headnode: %v", clusnode_host)
 		AddHeadnode(clusnode_host)
-		SaveNodeConfigs()
 	}
+	SaveNodeConfigs()
 
 	// Start clusnode service
 	prg := &program{}
 	if err := svc.Run(prg); err != nil {
-		log.Fatal(err)
+		LogFatality("Failed to start service: %v", err)
 	}
-	log.Printf("Exited")
+	LogInfo("Exited")
 }
 
 func config(args []string) {
@@ -343,7 +341,6 @@ func ParseHostAddress(address string) (hostname, port, host string, err error) {
 func LogPanicBeforeExit() {
 	if panic := recover(); panic != nil {
 		message := fmt.Sprintf("%v\n%v", panic, string(debug.Stack()))
-		fmt.Println(message)
-		log.Fatalln(message)
+		LogFatality(message)
 	}
 }

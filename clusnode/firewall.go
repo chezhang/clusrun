@@ -2,7 +2,6 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os/exec"
 	"strings"
 )
@@ -10,7 +9,7 @@ import (
 func SetupFireWall() {
 	if run_on_windows {
 		for _, dir := range []string{"in", "out"} {
-			log.Printf("Setup %v-bound firewall", dir)
+			LogInfo("Setup %v-bound firewall", dir)
 			rule_name := fmt.Sprintf("name=clusnode-%v", dir)
 			program := fmt.Sprintf("program=\"%v\"", executable_path)
 			bound_dir := fmt.Sprintf("dir=%v", dir)
@@ -19,9 +18,9 @@ func SetupFireWall() {
 				"protocol=tcp", "enable=yes", "action=allow", "profile=private,domain,public"}
 			cmd_add_fw = append(cmd_add_fw, strings.Split(program, " ")...)
 			for _, cmd := range [][]string{cmd_del_fw, cmd_add_fw} {
-				log.Printf("Run command: %v", strings.Join(cmd, " "))
+				LogInfo("Run command: %v", strings.Join(cmd, " "))
 				output, _ := exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
-				log.Printf("Output: %s", output)
+				LogInfo("Command output: %s", output)
 			}
 		}
 	} else {

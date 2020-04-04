@@ -3,7 +3,6 @@ package main
 import (
 	pb "../protobuf"
 	"fmt"
-	"log"
 	"net"
 	"syscall"
 	"time"
@@ -46,17 +45,17 @@ func (p *program) Stop() error {
 func (p *program) StartClusnode() {
 	_, port, _, err := ParseHostAddress(clusnode_host)
 	if err != nil {
-		log.Fatalf("Failed to parse clusnode host address: %v", err)
+		LogFatality("Failed to parse clusnode host address: %v", err)
 	}
 	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
+		LogFatality("Failed to listen: %v", err)
 	}
 	p.grpc_server = grpc.NewServer()
 	pb.RegisterClusnodeServer(p.grpc_server, &clusnode_server{})
 	pb.RegisterHeadnodeServer(p.grpc_server, &headnode_server{})
-	log.Printf("Clusnode %v starts listening on %v", clusnode_name, clusnode_host)
+	LogInfo("Clusnode %v starts listening on %v", clusnode_name, clusnode_host)
 	if err := p.grpc_server.Serve(lis); err != nil {
-		log.Fatalf("Failed to serve: %v", err)
+		LogFatality("Failed to serve: %v", err)
 	}
 }

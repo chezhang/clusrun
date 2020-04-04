@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"log"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -28,26 +27,27 @@ var (
 )
 
 func InitDatabase() {
+	LogInfo("Initializing database")
 	default_db_dir := executable_path + ".db"
 	headnode := filepath.Join(default_db_dir, strings.ReplaceAll(clusnode_host, ":", "."))
 	db_output_dir = headnode + ".output"
 	db_cmd_dir = headnode + ".command" // This directory is for clusnode not headnode, can be moved to other place when necessary
 	db_jobs = headnode + ".jobs"
 	if err := os.MkdirAll(db_output_dir, 0644); err != nil {
-		log.Fatalf("Error creating database dir: %v", err)
+		LogFatality("Failed to create output dir: %v", err)
 	}
 	if err := os.MkdirAll(db_cmd_dir, 0644); err != nil {
-		log.Fatalf("Error creating database dir: %v", err)
+		LogFatality("Failed to create command dir for clusnode: %v", err)
 	}
 	if _, err := os.Stat(db_jobs); os.IsNotExist(err) {
 		if err = ioutil.WriteFile(db_jobs, []byte("[]"), 0644); err != nil {
-			log.Fatalf("Error creating database file: %v", err)
+			LogFatality("Failed to create database jobs file: %v", err)
 		}
 	} else {
 		// Cancel active jobs
 		jobs, err := LoadJobs()
 		if err != nil {
-			log.Fatalf("Error loading database file: %v", err)
+			LogFatality("Failed to load jobs: %v", err)
 		}
 		jobs_id := make(map[int32]bool, len(jobs))
 		for i := range jobs {
@@ -58,18 +58,18 @@ func InitDatabase() {
 			jobs_id[jobs[i].Id] = true
 		}
 		if err := SaveJobs(jobs); err != nil {
-			log.Fatalf("Error saving database file: %v", err)
+			LogFatality("Failed to save jobs: %v", err)
 		}
 
 		// Cleanup output dir
 		output_dirs, err := ioutil.ReadDir(db_output_dir)
 		if err != nil {
-			log.Fatalf("Error listing database dir: %v", err)
+			LogFatality("Failed to read output dir: %v", err)
 		}
 		for _, f := range output_dirs {
 			job_id := f.Name()
 			if id, err := strconv.Atoi(job_id); err != nil || !f.IsDir() {
-				log.Fatalf("Unexpected database item %v in %v", job_id, db_output_dir)
+				LogFatality("Unexpected database item %v in %v", job_id, db_output_dir)
 			} else if _, ok := jobs_id[int32(id)]; !ok {
 				CleanupOutputDir(id)
 			}
@@ -121,9 +121,9 @@ func CreateNewJob(command string, nodes []string) (int, error) {
 }
 
 func CleanupOutputDir(job_id int) {
-	log.Printf("Clean up output dir of job %v", job_id)
+	LogInfo("Clean up output dir of job %v", job_id)
 	if err := os.RemoveAll(GetOutputDir(job_id)); err != nil {
-		log.Printf("Failed to cleanup output dir of job %v: %v", job_id, err)
+		LogWarning("Failed to cleanup output dir of job %v: %v", job_id, err)
 	}
 }
 
@@ -188,7 +188,7 @@ func UpdateJobState(id int, from, to pb.JobState) error {
 			if from == jobs[i].State {
 				jobs[i].State = to
 			} else {
-				log.Printf("Skip changing job %v state from %v to %v (Current state: %v)", id, from, to, jobs[i].State)
+				LogWarning("Skip changing job %v state from %v to %v (Current state: %v)", id, from, to, jobs[i].State)
 				return nil
 			}
 			break
@@ -197,7 +197,7 @@ func UpdateJobState(id int, from, to pb.JobState) error {
 	if err := SaveJobs(jobs); err != nil {
 		return err
 	}
-	log.Printf("Job %v state changed from %v to %v", id, from, to)
+	LogInfo("Job %v state changed from %v to %v", id, from, to)
 	return nil
 }
 
@@ -223,7 +223,7 @@ func EndJob(id int, from, to pb.JobState) error {
 			if jobs[i].State == from {
 				jobs[i].State = to
 			} else {
-				log.Printf("Skip changing job %v state from %v to %v (Current state: %v)", id, from, to, jobs[i].State)
+				LogWarning("Skip changing job %v state from %v to %v (Current state: %v)", id, from, to, jobs[i].State)
 				return nil
 			}
 			break
@@ -232,7 +232,7 @@ func EndJob(id int, from, to pb.JobState) error {
 	if err := SaveJobs(jobs); err != nil {
 		return err
 	}
-	log.Printf("Job %v ended with state %v", id, to)
+	LogInfo("Job %v ended with state %v", id, to)
 	return nil
 }
 
