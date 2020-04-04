@@ -125,34 +125,41 @@ func (s *clusnode_server) StartJob(in *pb.StartJobRequest, out pb.Clusnode_Start
 	jobs_pid.Store(job_label, cmd.Process.Pid)
 
 	// Send output
+	send_output := func(reader io.Reader, t string) {
+		buf := make([]byte, 1024)
+		for {
+			if n, err := reader.Read(buf); n > 0 {
+				output := string(buf[:n])
+				var reply pb.StartJobReply
+				if t == "stdout" {
+					reply.Stdout = output
+				} else {
+					reply.Stderr = output
+				}
+				if err := out.Send(&reply); err != nil {
+					log.Printf("Failed to send %v to headnode: %v", t, err)
+					break
+				}
+			} else {
+				if err == io.EOF {
+					log.Printf("Sending %v of job %v finished", t, job_label)
+				} else if err != nil {
+					log.Printf("Failed to get %v of command: %v", t, err)
+				} else {
+					log.Printf("Unexpected empty %v", t)
+				}
+				break
+			}
+		}
+	}
 	wg := sync.WaitGroup{}
 	wg.Add(2)
 	go func() {
-		buf := make([]byte, 1024)
-		for {
-			n, err := stdout.Read(buf)
-			if n > 0 {
-				err = out.Send(&pb.StartJobReply{Stdout: string(buf[:n])})
-			}
-			if err != nil {
-				log.Printf("Sending stdout of job %v finished: %v", job_label, err)
-				break
-			}
-		}
+		send_output(stdout, "stdout")
 		wg.Done()
 	}()
 	go func() {
-		buf := make([]byte, 1024)
-		for {
-			n, err := stderr.Read(buf)
-			if n > 0 {
-				err = out.Send(&pb.StartJobReply{Stderr: string(buf[:n])})
-			}
-			if err != nil {
-				log.Printf("Sending stderr of job %v finished: %v", job_label, err)
-				break
-			}
-		}
+		send_output(stderr, "stderr")
 		wg.Done()
 	}()
 
