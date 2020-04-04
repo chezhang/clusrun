@@ -21,16 +21,16 @@ import (
 )
 
 const (
-	default_port = "50505"
-	pprof_server = "0.0.0.0:8080"
+	DefaultPort = "50505"
+	pprofServer = "0.0.0.0:8080"
 )
 
 var (
-	executable_path string
-	local_host      string
-	run_on_windows  bool
-	NodeHost        string
-	NodeName        string
+	ExecutablePath string
+	RunOnWindows   bool
+	NodeHost       string
+	NodeName       string
+	localHost      string
 )
 
 func main() {
@@ -64,7 +64,7 @@ The commands are:
 
 func initGlobalVars() {
 	var err error
-	if executable_path, err = os.Executable(); err != nil {
+	if ExecutablePath, err = os.Executable(); err != nil {
 		LogFatality("Failed to get executable path: %v", err)
 	}
 
@@ -73,22 +73,22 @@ func initGlobalVars() {
 		LogFatality("Failed to get hostname: %v", err)
 	}
 	NodeName = strings.ToUpper(hostname)
-	local_host = NodeName + ":" + default_port
+	localHost = NodeName + ":" + DefaultPort
 
-	run_on_windows = runtime.GOOS == "windows"
+	RunOnWindows = runtime.GOOS == "windows"
 }
 
 func start(args []string) {
 	fs := flag.NewFlagSet("clusnode start options", flag.ExitOnError)
-	default_config_file := executable_path + ".config"
-	default_log_dir := executable_path + ".log"
+	default_config_file := ExecutablePath + ".config"
+	default_log_dir := ExecutablePath + ".log"
 	default_log_file_label := filepath.Join(default_log_dir, "<start time>.log")
 	default_log_file := filepath.Join(default_log_dir, time.Now().Format("20060102150405.log"))
 	config_file := fs.String("config-file", default_config_file, "specify the config file for saving and loading settings")
 	headnodes := fs.String("headnodes", "", "specify the host addresses of headnodes for this clusnode to join in")
-	host := fs.String("host", local_host, "specify the host address of this headnode and clusnode")
+	host := fs.String("host", localHost, "specify the host address of this headnode and clusnode")
 	log_file := fs.String("log-file", default_log_file_label, "specify the file for logging")
-	pprof := fs.Bool("pprof", false, fmt.Sprintf("start HTTP server on %v for pprof", pprof_server))
+	pprof := fs.Bool("pprof", false, fmt.Sprintf("start HTTP server on %v for pprof", pprofServer))
 	fs.Parse(args)
 
 	// Setup log file
@@ -111,9 +111,9 @@ func start(args []string) {
 
 	// Start HTTP server for pprof
 	if *pprof {
-		LogInfo("Start pprof HTTP server on %v", pprof_server)
+		LogInfo("Start pprof HTTP server on %v", pprofServer)
 		go func() {
-			if err := http.ListenAndServe(pprof_server, nil); err != nil {
+			if err := http.ListenAndServe(pprofServer, nil); err != nil {
 				LogError("Failed to start pprof HTTP server")
 			}
 		}()
@@ -126,8 +126,8 @@ func start(args []string) {
 	}
 
 	// Setup config file
-	node_config_file = *config_file
-	LogInfo("Config file: %v", node_config_file)
+	NodeConfigFile = *config_file
+	LogInfo("Config file: %v", NodeConfigFile)
 	LoadNodeConfigs()
 
 	// Setup headnodes
@@ -163,7 +163,7 @@ func config(args []string) {
 
 	command := strings.ToLower(args[0])
 	fs := flag.NewFlagSet("clusnode config options", flag.ExitOnError)
-	node := fs.String("node", local_host, "specify the node to config")
+	node := fs.String("node", localHost, "specify the node to config")
 	var mode pb.SetHeadnodesMode
 	switch strings.ToLower(command) {
 	case "add":
@@ -334,7 +334,7 @@ func ParseHostAddress(address string) (hostname, port, host string, err error) {
 			}
 			port = strconv.Itoa(int(temp_port))
 		} else {
-			port = default_port
+			port = DefaultPort
 		}
 	}
 	host = hostname + ":" + port

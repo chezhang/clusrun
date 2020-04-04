@@ -19,7 +19,7 @@ import (
 
 func Run(args []string) {
 	fs := flag.NewFlagSet("clus run options", flag.ExitOnError)
-	headnode := fs.String("headnode", local_host, "specify the headnode to connect")
+	headnode := fs.String("headnode", LocalHost, "specify the headnode to connect")
 	script := fs.String("script", "", "specify the script file containing commands to run")
 	dump := fs.Bool("dump", false, "save the output to file")
 	nodes := fs.String("nodes", "", "specify certain nodes to run the command")
@@ -91,7 +91,7 @@ func CreateOutputDir() string {
 
 func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffer_size, immediate int) {
 	// Setup connection
-	ctx, cancel := context.WithTimeout(context.Background(), connect_timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
 	conn, err := grpc.DialContext(ctx, headnode, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
@@ -253,7 +253,7 @@ func Summary(cache map[string][]rune, finished_nodes, failed_nodes, all_nodes []
 	min, max, mean, mid, std_dev := GetTimeStat(job_time)
 	fmt.Println(GetPaddingLine(""))
 	runtime := fmt.Sprintf("Runtime: Min=%v, Max=%v, Mean=%v, Mid=%v, SD=%v", min, max, mean, mid, std_dev)
-	if len(runtime) <= console_width {
+	if len(runtime) <= ConsoleWidth {
 		fmt.Println(runtime)
 	} else {
 		fmt.Println(strings.ReplaceAll(strings.ReplaceAll(runtime, " ", "\n"), ",", ""))

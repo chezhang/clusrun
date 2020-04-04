@@ -15,28 +15,28 @@ import (
 )
 
 const (
-	Label_Last_Job = -1
-	Label_All_Jobs = -2
+	JobId_Last = -1
+	JobId_All  = -2
 )
 
 var (
-	db_output_dir string
-	db_cmd_dir    string
-	db_jobs       string
-	db_jobs_lock  sync.Mutex
+	db_outputDir string
+	db_cmdDir    string
+	db_jobs      string
+	db_jobsLock  sync.Mutex
 )
 
 func InitDatabase() {
 	LogInfo("Initializing database")
-	default_db_dir := executable_path + ".db"
+	default_db_dir := ExecutablePath + ".db"
 	headnode := filepath.Join(default_db_dir, strings.ReplaceAll(NodeHost, ":", "."))
-	db_output_dir = headnode + ".output"
-	db_cmd_dir = headnode + ".command" // This directory is for clusnode not headnode, can be moved to other place when necessary
+	db_outputDir = headnode + ".output"
+	db_cmdDir = headnode + ".command" // This directory is for clusnode not headnode, can be moved to other place when necessary
 	db_jobs = headnode + ".jobs"
-	if err := os.MkdirAll(db_output_dir, 0644); err != nil {
+	if err := os.MkdirAll(db_outputDir, 0644); err != nil {
 		LogFatality("Failed to create output dir: %v", err)
 	}
-	if err := os.MkdirAll(db_cmd_dir, 0644); err != nil {
+	if err := os.MkdirAll(db_cmdDir, 0644); err != nil {
 		LogFatality("Failed to create command dir for clusnode: %v", err)
 	}
 	if _, err := os.Stat(db_jobs); os.IsNotExist(err) {
@@ -62,14 +62,14 @@ func InitDatabase() {
 		}
 
 		// Cleanup output dir
-		output_dirs, err := ioutil.ReadDir(db_output_dir)
+		output_dirs, err := ioutil.ReadDir(db_outputDir)
 		if err != nil {
 			LogFatality("Failed to read output dir: %v", err)
 		}
 		for _, f := range output_dirs {
 			job_id := f.Name()
 			if id, err := strconv.Atoi(job_id); err != nil || !f.IsDir() {
-				LogFatality("Unexpected database item %v in %v", job_id, db_output_dir)
+				LogFatality("Unexpected database item %v in %v", job_id, db_outputDir)
 			} else if _, ok := jobs_id[int32(id)]; !ok {
 				CleanupOutputDir(id)
 			}
@@ -79,8 +79,8 @@ func InitDatabase() {
 
 func CreateNewJob(command string, nodes []string) (int, error) {
 	// Add new job in job list
-	db_jobs_lock.Lock()
-	defer db_jobs_lock.Unlock()
+	db_jobsLock.Lock()
+	defer db_jobsLock.Unlock()
 	jobs, err := LoadJobs()
 	if err != nil {
 		return -1, err
@@ -177,8 +177,8 @@ func IsActiveState(state pb.JobState) bool {
 }
 
 func UpdateJobState(id int, from, to pb.JobState) error {
-	db_jobs_lock.Lock()
-	defer db_jobs_lock.Unlock()
+	db_jobsLock.Lock()
+	defer db_jobsLock.Unlock()
 	jobs, err := LoadJobs()
 	if err != nil {
 		return err
@@ -202,7 +202,7 @@ func UpdateJobState(id int, from, to pb.JobState) error {
 }
 
 func GetOutputDir(id int) string {
-	return filepath.Join(db_output_dir, strconv.Itoa(id))
+	return filepath.Join(db_outputDir, strconv.Itoa(id))
 }
 
 func GetOutputFile(id int, node string) (string, string) {
@@ -211,8 +211,8 @@ func GetOutputFile(id int, node string) (string, string) {
 }
 
 func EndJob(id int, from, to pb.JobState) error {
-	db_jobs_lock.Lock()
-	defer db_jobs_lock.Unlock()
+	db_jobsLock.Lock()
+	defer db_jobsLock.Unlock()
 	jobs, err := LoadJobs()
 	if err != nil {
 		return err
@@ -237,16 +237,16 @@ func EndJob(id int, from, to pb.JobState) error {
 }
 
 func CancelJobs(job_ids map[int32]bool) (map[int32]pb.JobState, map[int32][]string, error) {
-	db_jobs_lock.Lock()
-	defer db_jobs_lock.Unlock()
+	db_jobsLock.Lock()
+	defer db_jobsLock.Unlock()
 	jobs, err := LoadJobs()
 	if err != nil {
 		return nil, nil, err
 	}
 	cancel_all := false
-	if _, ok := job_ids[Label_Last_Job]; ok && len(jobs) > 0 {
+	if _, ok := job_ids[JobId_Last]; ok && len(jobs) > 0 {
 		job_ids = map[int32]bool{jobs[len(jobs)-1].Id: false}
-	} else if _, ok := job_ids[Label_All_Jobs]; ok {
+	} else if _, ok := job_ids[JobId_All]; ok {
 		cancel_all = true
 	}
 	result := map[int32]pb.JobState{}
@@ -265,4 +265,45 @@ func CancelJobs(job_ids map[int32]bool) (map[int32]pb.JobState, map[int32][]stri
 		return nil, nil, err
 	}
 	return result, to_cancel, nil
+}
+
+func UpdateCancelledJob(id int32, cancel_failed_nodes []string) {
+	db_jobsLock.Lock()
+	defer db_jobsLock.Unlock()
+	jobs, err := LoadJobs()
+	if err != nil {
+		LogError("Failed to load jobs for saving cancellation result of job %v: %v", id, err)
+		return
+	}
+	for i := range jobs {
+		if jobs[i].Id == id {
+			if len(cancel_failed_nodes) == 0 {
+				jobs[i].State = pb.JobState_Canceled
+				LogInfo("Job %v is canceled", id)
+			} else {
+				jobs[i].State = pb.JobState_CancelFailed
+				jobs[i].CancelFailedNodes = cancel_failed_nodes
+				LogWarning("Cancellation of job %v failed for nodes: %v", id, cancel_failed_nodes)
+			}
+			break
+		}
+	}
+	if err := SaveJobs(jobs); err != nil {
+		LogError("Failed to save cancellation result of job %v: %v", id, err)
+		return
+	}
+}
+
+func CreateCommandFile(job_label, command string) (string, error) {
+	file := filepath.Join(db_cmdDir, job_label)
+	if RunOnWindows {
+		file += ".cmd"
+	} else {
+		file += ".sh"
+	}
+	LogInfo("Create file %v", file)
+	if err := ioutil.WriteFile(file, []byte(command), 0644); err != nil {
+		return file, err
+	}
+	return file, nil
 }

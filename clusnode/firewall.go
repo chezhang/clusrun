@@ -7,11 +7,11 @@ import (
 )
 
 func SetupFireWall() {
-	if run_on_windows {
+	if RunOnWindows {
 		for _, dir := range []string{"in", "out"} {
 			LogInfo("Setup %v-bound firewall", dir)
 			rule_name := fmt.Sprintf("name=clusnode-%v", dir)
-			program := fmt.Sprintf("program=\"%v\"", executable_path)
+			program := fmt.Sprintf("program=\"%v\"", ExecutablePath)
 			bound_dir := fmt.Sprintf("dir=%v", dir)
 			cmd_del_fw := []string{"netsh", "advfirewall", "firewall", "delete", "rule", rule_name}
 			cmd_add_fw := []string{"netsh", "advfirewall", "firewall", "add", "rule", rule_name, bound_dir,

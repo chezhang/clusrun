@@ -9,14 +9,14 @@ import (
 )
 
 const (
-	default_port        = "50505"
-	local_host          = "localhost:" + default_port
-	connect_timeout     = 30 * time.Second
-	default_line_length = 60
+	DefaultPort       = "50505"
+	LocalHost         = "localhost:" + DefaultPort
+	ConnectTimeout    = 30 * time.Second
+	DefaultLineLength = 60
 )
 
 var (
-	console_width = 0
+	ConsoleWidth = 0
 )
 
 func main() {
@@ -25,7 +25,7 @@ func main() {
 		return
 	}
 	var err error
-	if console_width, _, err = terminal.GetSize(int(os.Stdout.Fd())); err != nil {
+	if ConsoleWidth, _, err = terminal.GetSize(int(os.Stdout.Fd())); err != nil {
 		fmt.Printf("[Warning] Failed to get console width: %v\n", err)
 	}
 	cmd, args := os.Args[1], os.Args[2:]
@@ -69,15 +69,15 @@ func ParseHeadnode(headnode string) string {
 	if strings.Contains(headnode, ":") {
 		return headnode
 	} else {
-		return headnode + ":" + default_port
+		return headnode + ":" + DefaultPort
 	}
 }
 
 func GetPaddingLine(heading string) string {
 	padding := "-"
-	line_length := default_line_length
-	if console_width > 0 {
-		line_length = console_width - 1
+	line_length := DefaultLineLength
+	if ConsoleWidth > 0 {
+		line_length = ConsoleWidth - 1
 	}
 	if padding_length := line_length - len(heading); padding_length > 0 {
 		paddings := strings.Repeat(padding, padding_length/2)

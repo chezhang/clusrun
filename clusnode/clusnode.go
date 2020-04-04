@@ -8,10 +8,8 @@ import (
 	"context"
 	"errors"
 	"io"
-	"io/ioutil"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"sync"
@@ -19,13 +17,12 @@ import (
 )
 
 const (
-	connect_timeout  = 30 * time.Second
-	default_nodename = "Unknown"
+	ConnectTimeout = 30 * time.Second
 )
 
 var (
-	headnodes_reporting sync.Map
-	jobs_pid            sync.Map
+	headnodesReporting sync.Map
+	jobsPid            sync.Map
 )
 
 type heartbeat_state struct {
@@ -64,7 +61,7 @@ func (s *clusnode_server) SetHeadnodes(ctx context.Context, in *pb.SetHeadnodesR
 			}
 		}
 		if mode == pb.SetHeadnodesMode_Default {
-			headnodes_reporting.Range(func(key, val interface{}) bool {
+			headnodesReporting.Range(func(key, val interface{}) bool {
 				if state := val.(*heartbeat_state); !state.Stopped {
 					node := key.(string)
 					if _, ok := results[node]; !ok {
@@ -102,7 +99,7 @@ func (s *clusnode_server) StartJob(in *pb.StartJobRequest, out pb.Clusnode_Start
 	// Run command
 	start_point := "/bin/bash"
 	args := []string{cmd_file}
-	if run_on_windows {
+	if RunOnWindows {
 		start_point = "cmd"
 		args = []string{"/q", "/c", cmd_file}
 	}
@@ -119,7 +116,7 @@ func (s *clusnode_server) StartJob(in *pb.StartJobRequest, out pb.Clusnode_Start
 		LogError("%v %v: %v", message, job_label, err)
 		return errors.New(message)
 	}
-	jobs_pid.Store(job_label, cmd.Process.Pid)
+	jobsPid.Store(job_label, cmd.Process.Pid)
 
 	// Send output
 	send_output := func(reader io.Reader, t string) {
@@ -181,9 +178,9 @@ func (s *clusnode_server) CancelJob(ctx context.Context, in *pb.CancelJobRequest
 	headnode, job_id := in.GetHeadnode(), in.GetJobId()
 	LogInfo("Receive CancelJob from headnode %v to cancel job %v", headnode, job_id)
 	job_label := GetJobLabel(headnode, int(job_id))
-	if pid, ok := jobs_pid.Load(job_label); ok {
+	if pid, ok := jobsPid.Load(job_label); ok {
 		pid := pid.(int)
-		if run_on_windows {
+		if RunOnWindows {
 			cmd := []string{"TASKKILL", "/T", "/F", "/PID", strconv.Itoa(pid)}
 			LogInfo("Cancel job %v with command: %v", job_label, strings.Join(cmd, " "))
 			output, _ := exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
@@ -212,7 +209,7 @@ func (s *clusnode_server) GetConfigs(ctx context.Context, in *pb.Empty) (*pb.Get
 }
 
 func CleanupJob(job_label, cmd_file string) {
-	jobs_pid.Delete(job_label)
+	jobsPid.Delete(job_label)
 	if err := os.Remove(cmd_file); err != nil {
 		LogError("Failed to cleanup job %v: %v", job_label, err)
 	}
@@ -222,27 +219,13 @@ func GetJobLabel(headnode string, job_id int) string {
 	return strings.ReplaceAll(headnode, ":", ".") + "." + strconv.Itoa(job_id)
 }
 
-func CreateCommandFile(job_label, command string) (string, error) {
-	file := filepath.Join(db_cmd_dir, job_label)
-	if run_on_windows {
-		file += ".cmd"
-	} else {
-		file += ".sh"
-	}
-	LogInfo("Create file %v", file)
-	if err := ioutil.WriteFile(file, []byte(command), 0644); err != nil {
-		return file, err
-	}
-	return file, nil
-}
-
 func AddHeadnode(headnode string) (added string, e error) {
 	_, _, headnode, err := ParseHostAddress(headnode)
 	if err != nil {
 		e = errors.New("Failed to parse headnode host address: " + err.Error())
 		return
 	}
-	if state, ok := headnodes_reporting.LoadOrStore(headnode, &heartbeat_state{Connected: false, Stopped: false}); ok {
+	if state, ok := headnodesReporting.LoadOrStore(headnode, &heartbeat_state{Connected: false, Stopped: false}); ok {
 		s := state.(*heartbeat_state)
 		if s.Stopped {
 			s.Stopped = false
@@ -268,7 +251,7 @@ func RemoveHeadnode(headnode string) (removed string, e error) {
 		e = errors.New("Failed to parse headnode host address: " + err.Error())
 		return
 	}
-	if state, ok := headnodes_reporting.Load(headnode); ok {
+	if state, ok := headnodesReporting.Load(headnode); ok {
 		s := state.(*heartbeat_state)
 		if s.Stopped {
 			e = errors.New("Already removed")
@@ -283,7 +266,7 @@ func RemoveHeadnode(headnode string) (removed string, e error) {
 }
 
 func GetHeadnodes() (connected, connecting []string) {
-	headnodes_reporting.Range(func(key, val interface{}) bool {
+	headnodesReporting.Range(func(key, val interface{}) bool {
 		if state := val.(*heartbeat_state); !state.Stopped {
 			headnode := key.(string)
 			if state.Connected {
@@ -302,15 +285,15 @@ func Heartbeat(from, headnode string) {
 	stopped := true
 	for {
 		// Known data race of heartbeat_state when adding or removing headnode
-		if state, ok := headnodes_reporting.Load(headnode); ok && !state.(*heartbeat_state).Stopped {
+		if state, ok := headnodesReporting.Load(headnode); ok && !state.(*heartbeat_state).Stopped {
 			if stopped {
 				LogInfo("Start heartbeat from %v to %v", from, headnode)
 				stopped = false
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), connect_timeout)
+			ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 			conn, err := grpc.DialContext(ctx, headnode, grpc.WithInsecure(), grpc.WithBlock())
 			if err != nil {
-				LogError("Can not connect %v in %v: %v", headnode, connect_timeout, err)
+				LogError("Can not connect %v in %v: %v", headnode, ConnectTimeout, err)
 				connected = false
 			} else {
 				if !connected {
@@ -318,7 +301,7 @@ func Heartbeat(from, headnode string) {
 					connected = true
 				}
 				c := pb.NewHeadnodeClient(conn)
-				ctx, cancel := context.WithTimeout(context.Background(), connect_timeout)
+				ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 				_, err = c.Heartbeat(ctx, &pb.HeartbeatRequest{Nodename: NodeName, Host: from})
 				if err != nil {
 					LogError("Can not send heartbeat: %v", err)

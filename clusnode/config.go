@@ -20,8 +20,8 @@ const (
 )
 
 var (
-	node_config_file       string
-	positive_int_validator = func(value interface{}) error {
+	NodeConfigFile       string
+	positiveIntValidator = func(value interface{}) error {
 		if v, ok := value.(int); !ok {
 			return errors.New("Invalid type")
 		} else if v <= 0 {
@@ -33,32 +33,32 @@ var (
 	Config_Clusnode_HeartbeatIntervalSecond = ConfigItem{
 		Name:      "heartbeat interval in seconds",
 		Value:     1,
-		Validator: positive_int_validator,
+		Validator: positiveIntValidator,
 	}
 	Config_Headnode_HeartbeatTimeoutSecond = ConfigItem{
 		Name:      "mark node lost after no heartbeat for seconds",
 		Value:     5,
-		Validator: positive_int_validator,
+		Validator: positiveIntValidator,
 	}
 	Config_Headnode_MaxJobCount = ConfigItem{
 		Name:      "max job count",
 		Value:     100,
-		Validator: positive_int_validator,
+		Validator: positiveIntValidator,
 	}
 	Config_Headnode_OutputMaxSingleSizeKb = ConfigItem{
 		Name:      "max size for output of one job and one node in KB",
 		Value:     1000,
-		Validator: positive_int_validator,
+		Validator: positiveIntValidator,
 	}
 	Config_Headnode_OutputMaxTotalSizeMb = ConfigItem{
 		Name:      "max size for all job output in MB",
 		Value:     1000,
-		Validator: positive_int_validator,
+		Validator: positiveIntValidator,
 	}
 	Config_Headnode_PurgeLostForSecond = ConfigItem{
 		Name:      "purge nodes lost for seconds",
 		Value:     3600,
-		Validator: positive_int_validator,
+		Validator: positiveIntValidator,
 	}
 	Config_Headnode_StoreOutput = ConfigItem{
 		Name:  "store output",
@@ -86,9 +86,9 @@ func SaveNodeConfigs() {
 	LogInfo("Saving node configs")
 
 	// Use the process file as a lock to enable multi-process access of the config file
-	lock := fslock.New(executable_path)
+	lock := fslock.New(ExecutablePath)
 	if err := lock.LockWithTimeout(3 * time.Second); err != nil {
-		LogError("Failed to lock the process file %v when saving node configs", executable_path)
+		LogError("Failed to lock the process file %v when saving node configs", ExecutablePath)
 		return
 	}
 	defer lock.Unlock()
@@ -259,7 +259,7 @@ func GetNodeConfigs(role string) map[string]string {
 }
 
 func readConfigFile() (config map[string]interface{}, err error) {
-	json_string, err := ioutil.ReadFile(node_config_file)
+	json_string, err := ioutil.ReadFile(NodeConfigFile)
 	if err == nil {
 		err = json.Unmarshal(json_string, &config)
 	}
@@ -271,7 +271,7 @@ func saveConfigFile(config map[string]interface{}) error {
 	if err != nil {
 		return err
 	}
-	return ioutil.WriteFile(node_config_file, json_string, 0644)
+	return ioutil.WriteFile(NodeConfigFile, json_string, 0644)
 }
 
 type ConfigItem struct {

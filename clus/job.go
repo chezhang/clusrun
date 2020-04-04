@@ -14,13 +14,13 @@ import (
 )
 
 const (
-	label_last_job = -1
-	label_all_jobs = -2
+	jobId_last = -1
+	jobId_all  = -2
 )
 
 func Job(args []string) {
 	fs := flag.NewFlagSet("clus job options", flag.ExitOnError)
-	headnode := fs.String("headnode", local_host, "specify the headnode to connect")
+	headnode := fs.String("headnode", LocalHost, "specify the headnode to connect")
 	format := fs.String("format", "", "format the jobs in table or list")
 	cancel := fs.Bool("cancel", false, "cancel jobs")
 	// output := fs.Bool("output", false, "get output of job(s)")
@@ -31,13 +31,13 @@ func Job(args []string) {
 	job_ids := ParseJobIds(fs.Args())
 	if *cancel {
 		if no_job_args {
-			job_ids[label_last_job] = false
+			job_ids[jobId_last] = false
 		}
 		CancelJobs(ParseHeadnode(*headnode), job_ids)
 		return
 	}
 	if no_job_args {
-		job_ids[label_all_jobs] = false
+		job_ids[jobId_all] = false
 	}
 	jobs := GetJobs(ParseHeadnode(*headnode), job_ids)
 	if len(*format) == 0 {
@@ -62,7 +62,7 @@ func ParseJobIds(args []string) map[int32]bool {
 	job_ids := map[int32]bool{}
 	if len(args) > 0 {
 		if len(args) == 1 && (args[0] == "*" || strings.ToLower(args[0]) == "all") {
-			job_ids[label_all_jobs] = false
+			job_ids[jobId_all] = false
 			return job_ids
 		}
 		for _, arg := range args {
@@ -98,7 +98,7 @@ func ParseJobIds(args []string) map[int32]bool {
 
 func CancelJobs(headnode string, job_ids map[int32]bool) {
 	// Setup connection
-	ctx, cancel := context.WithTimeout(context.Background(), connect_timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
 	conn, err := grpc.DialContext(ctx, headnode, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
@@ -108,7 +108,7 @@ func CancelJobs(headnode string, job_ids map[int32]bool) {
 	}
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)
-	ctx, cancel = context.WithTimeout(context.Background(), connect_timeout)
+	ctx, cancel = context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
 
 	// Cancel job(s) in the cluster
@@ -134,7 +134,7 @@ func CancelJobs(headnode string, job_ids map[int32]bool) {
 
 func GetJobs(headnode string, ids map[int32]bool) []*pb.Job {
 	// Setup connection
-	ctx, cancel := context.WithTimeout(context.Background(), connect_timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
 	conn, err := grpc.DialContext(ctx, headnode, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
@@ -144,7 +144,7 @@ func GetJobs(headnode string, ids map[int32]bool) []*pb.Job {
 	}
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)
-	ctx, cancel = context.WithTimeout(context.Background(), connect_timeout)
+	ctx, cancel = context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
 
 	// Get job(s) in the cluster
@@ -154,7 +154,7 @@ func GetJobs(headnode string, ids map[int32]bool) []*pb.Job {
 		os.Exit(0)
 	}
 	jobs := reply.GetJobs()
-	if _, ok := ids[label_all_jobs]; !ok && len(ids) > 0 {
+	if _, ok := ids[jobId_all]; !ok && len(ids) > 0 {
 		for _, job := range jobs {
 			ids[job.Id] = true
 		}
@@ -189,9 +189,9 @@ func JobPrintTable(jobs []*pb.Job) {
 			max_nodes_length = len(header_nodes)
 		}
 		id_width, state_width, nodes_width := max_id_length+gap, max_state_length+gap, max_nodes_length+gap
-		line_length := default_line_length
-		if console_width > 0 {
-			line_length = console_width - 1
+		line_length := DefaultLineLength
+		if ConsoleWidth > 0 {
+			line_length = ConsoleWidth - 1
 		}
 		remain_length := line_length - id_width - state_width - nodes_width
 		if remain_length < min_command_length {

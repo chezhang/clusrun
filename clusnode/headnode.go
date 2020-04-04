@@ -18,8 +18,8 @@ import (
 
 var (
 	// TODO: use a sync.Map from node to id and 2 arrays instead, only lock when appending
-	reported_time   sync.Map
-	validate_number sync.Map
+	reportedTime   sync.Map
+	validateNumber sync.Map
 )
 
 type headnode_server struct {
@@ -40,18 +40,18 @@ func (s *headnode_server) Heartbeat(ctx context.Context, in *pb.HeartbeatRequest
 	}
 	nodename = strings.ToUpper(nodename)
 	var display_name string
-	if hostname == nodename && port == default_port {
+	if hostname == nodename && port == DefaultPort {
 		display_name = nodename
 	} else {
 		display_name = nodename + "(" + host + ")"
 	}
-	if last_report, ok := reported_time.Load(display_name); !ok {
+	if last_report, ok := reportedTime.Load(display_name); !ok {
 		LogInfo("First heartbeat from %v", display_name)
 	} else if HeartbeatTimeout(last_report.(time.Time)) {
 		LogInfo("%v reconnected. Last report time: %v", display_name, last_report)
-		validate_number.Delete(display_name)
+		validateNumber.Delete(display_name)
 	}
-	reported_time.Store(display_name, time.Now())
+	reportedTime.Store(display_name, time.Now())
 	go Validate(display_name, nodename, host)
 	return &pb.Empty{}, nil
 }
@@ -60,7 +60,7 @@ func (s *headnode_server) GetNodes(ctx context.Context, in *pb.GetNodesRequest) 
 	defer LogPanicBeforeExit()
 	pattern, state, _ := in.GetPattern(), in.GetState(), in.GetGroups()
 	nodes := []*pb.GetNodesReply_Node{}
-	reported_time.Range(func(key interface{}, val interface{}) bool {
+	reportedTime.Range(func(key interface{}, val interface{}) bool {
 		nodename := key.(string)
 		if matched, _ := regexp.MatchString(pattern, nodename); !matched {
 			return true
@@ -70,7 +70,7 @@ func (s *headnode_server) GetNodes(ctx context.Context, in *pb.GetNodesRequest) 
 		if HeartbeatTimeout(last_report) {
 			node.State = pb.NodeState_Lost
 		} else {
-			if number, ok := validate_number.Load(nodename); ok && number.(int) < 0 {
+			if number, ok := validateNumber.Load(nodename); ok && number.(int) < 0 {
 				node.State = pb.NodeState_Ready
 			} else {
 				node.State = pb.NodeState_Error
@@ -93,7 +93,7 @@ func (s *headnode_server) GetJobs(ctx context.Context, in *pb.GetJobsRequest) (*
 		return nil, err
 	}
 	get_all := false
-	if _, ok := job_ids[Label_All_Jobs]; ok {
+	if _, ok := job_ids[JobId_All]; ok {
 		get_all = true
 	}
 	jobs := []*pb.Job{}
@@ -179,10 +179,10 @@ func (s *headnode_server) GetConfigs(ctx context.Context, in *pb.Empty) (*pb.Get
 }
 
 func Validate(display_name, nodename, host string) {
-	if number, ok := validate_number.LoadOrStore(display_name, 0); !ok || number.(int) > 0 {
+	if number, ok := validateNumber.LoadOrStore(display_name, 0); !ok || number.(int) > 0 {
 		number := number.(int)
 		if ok { // validate immediately in the first time, otherwise double validating interval after every failure
-			validate_number.Store(display_name, 0) // value 0 means validation is ongoing
+			validateNumber.Store(display_name, 0) // value 0 means validation is ongoing
 			delay := math.Pow(2, float64(number))
 			if delay > 60 {
 				delay = 60
@@ -193,7 +193,7 @@ func Validate(display_name, nodename, host string) {
 		conn, err := grpc.Dial(host, grpc.WithInsecure(), grpc.WithBlock())
 		if err != nil {
 			LogError("Can not connect: %v", err)
-			validate_number.Store(display_name, number+1)
+			validateNumber.Store(display_name, number+1)
 			return
 		}
 		defer conn.Close()
@@ -207,13 +207,13 @@ func Validate(display_name, nodename, host string) {
 		name := strings.ToUpper(reply.GetNodename())
 		if err != nil {
 			LogError("Validation failed: %v", err)
-			validate_number.Store(display_name, number+1)
+			validateNumber.Store(display_name, number+1)
 		} else if name != nodename { // in case a clusnode is started with a wrong but reachable host
 			LogError("Validation failed: expect nodename %v, replied nodename %v", nodename, name)
-			validate_number.Store(display_name, 10)
+			validateNumber.Store(display_name, 10)
 		} else {
 			LogInfo("Clusnode %v is validated that being hosted by %v", display_name, host)
-			validate_number.Store(display_name, -1)
+			validateNumber.Store(display_name, -1)
 		}
 	}
 }
@@ -221,10 +221,10 @@ func Validate(display_name, nodename, host string) {
 func GetValidNodes(nodes []string, pattern string) ([]string, []string) {
 	ready_nodes := map[string]string{}
 	valid_nodes := []string{}
-	reported_time.Range(func(key interface{}, val interface{}) bool {
+	reportedTime.Range(func(key interface{}, val interface{}) bool {
 		node := key.(string)
 		last_report := val.(time.Time)
-		if number, ok := validate_number.Load(node); ok && number.(int) < 0 && !HeartbeatTimeout(last_report) {
+		if number, ok := validateNumber.Load(node); ok && number.(int) < 0 && !HeartbeatTimeout(last_report) {
 			if matched, _ := regexp.MatchString(pattern, node); !matched {
 				return true
 			}
@@ -255,7 +255,7 @@ func GetValidNodes(nodes []string, pattern string) ([]string, []string) {
 func ParseHost(display_name string) string {
 	segs := strings.Split(display_name, "(")
 	if len(segs) <= 1 {
-		return display_name + ":" + default_port
+		return display_name + ":" + DefaultPort
 	} else {
 		return segs[1][:len(segs[1])-1]
 	}
@@ -283,10 +283,10 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 	job_on_nodes.Store(node, pb.JobState_Dispatching)
 
 	// Setup connection
-	ctx, cancel := context.WithTimeout(context.Background(), connect_timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 	conn, err := grpc.DialContext(ctx, ParseHost(node), grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
-		LogError("Can not connect node %v in %v: %v", node, connect_timeout, err)
+		LogError("Can not connect node %v in %v: %v", node, ConnectTimeout, err)
 		return
 	}
 	defer conn.Close()
@@ -366,52 +366,29 @@ func CancelJob(id int32, nodes []string) {
 		go CancelJobOnNode(id, nodes[i], &wg, &result)
 	}
 	wg.Wait()
-	cancel_failed_nodes := []string{}
+	var cancel_failed_nodes []string
 	result.Range(func(node interface{}, canceled interface{}) bool {
 		if !canceled.(bool) {
 			cancel_failed_nodes = append(cancel_failed_nodes, node.(string))
 		}
 		return true
 	})
-	db_jobs_lock.Lock()
-	defer db_jobs_lock.Unlock()
-	jobs, err := LoadJobs()
-	if err != nil {
-		LogError("Failed to load jobs for saving cancellation result of job %v: %v", id, err)
-		return
-	}
-	for i := range jobs {
-		if jobs[i].Id == id {
-			if len(cancel_failed_nodes) == 0 {
-				jobs[i].State = pb.JobState_Canceled
-				LogInfo("Job %v is canceled", id)
-			} else {
-				jobs[i].State = pb.JobState_CancelFailed
-				jobs[i].CancelFailedNodes = cancel_failed_nodes
-				LogWarning("Cancellation of job %v failed for nodes: %v", id, cancel_failed_nodes)
-			}
-			break
-		}
-	}
-	if err := SaveJobs(jobs); err != nil {
-		LogError("Failed to save cancellation result of job %v: %v", id, err)
-		return
-	}
+	UpdateCancelledJob(id, cancel_failed_nodes)
 }
 
 func CancelJobOnNode(id int32, node string, wg *sync.WaitGroup, result *sync.Map) {
 	defer wg.Done()
 
 	// Setup connection
-	ctx, cancel := context.WithTimeout(context.Background(), connect_timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 	conn, err := grpc.DialContext(ctx, ParseHost(node), grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
-		LogError("Can not connect node %v in %v: %v", node, connect_timeout, err)
+		LogError("Can not connect node %v in %v: %v", node, ConnectTimeout, err)
 		return
 	}
 	defer conn.Close()
 	c := pb.NewClusnodeClient(conn)
-	ctx, cancel = context.WithTimeout(context.Background(), connect_timeout)
+	ctx, cancel = context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
 
 	// Cancel job on clusnode

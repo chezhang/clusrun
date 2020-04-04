@@ -13,7 +13,7 @@ import (
 
 func Node(args []string) {
 	fs := flag.NewFlagSet("clus node options", flag.ExitOnError)
-	headnode := fs.String("headnode", local_host, "specify the headnode to connect")
+	headnode := fs.String("headnode", LocalHost, "specify the headnode to connect")
 	pattern := fs.String("pattern", "", "get nodes matching a certain regular expression pattern")
 	filter_by_state := fs.String("state", "", "get nodes in certain state (ready, error or lost)")
 	filter_by_groups := fs.String("groups", "", "get nodes in certain node groups")
@@ -71,7 +71,7 @@ func GetNodes(headnode, pattern, state, groups string) (nodes []*pb.GetNodesRepl
 	}
 
 	// Setup connection
-	ctx, cancel := context.WithTimeout(context.Background(), connect_timeout)
+	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
 	conn, err := grpc.DialContext(ctx, headnode, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
@@ -81,7 +81,7 @@ func GetNodes(headnode, pattern, state, groups string) (nodes []*pb.GetNodesRepl
 	}
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)
-	ctx, cancel = context.WithTimeout(context.Background(), connect_timeout)
+	ctx, cancel = context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
 
 	// Get nodes reporting to the headnode
@@ -175,12 +175,12 @@ func PrintGroup(name string, nodes []string) {
 			}
 		}
 		sort.Strings(nodes)
-		if console_width == 0 {
+		if ConsoleWidth == 0 {
 			fmt.Println(strings.Join(nodes, ", "))
 		} else {
 			padding := 3
 			width := max_name_length + padding
-			count := (console_width + padding) / width
+			count := (ConsoleWidth + padding) / width
 			if count == 0 {
 				count = 1
 			}
