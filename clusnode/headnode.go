@@ -92,6 +92,7 @@ func (s *headnode_server) GetJobs(ctx context.Context, in *pb.GetJobsRequest) (*
 	if err != nil {
 		return nil, err
 	}
+	job_ids = NormalizeJobIds(job_ids, loaded_jobs)
 	get_all := false
 	if _, ok := job_ids[JobId_All]; ok {
 		get_all = true

@@ -15,8 +15,7 @@ import (
 )
 
 const (
-	JobId_Last = -1
-	JobId_All  = -2
+	JobId_All = 0
 )
 
 var (
@@ -77,7 +76,7 @@ func InitDatabase() {
 	}
 }
 
-func CreateNewJob(command string, nodes []string) (int, error) {
+func CreateNewJob(command string, serial string, nodes []string) (int, error) {
 	// Add new job in job list
 	db_jobsLock.Lock()
 	defer db_jobsLock.Unlock()
@@ -101,6 +100,9 @@ func CreateNewJob(command string, nodes []string) (int, error) {
 		CreateTime: time.Now().Unix(),
 		State:      pb.JobState_Created,
 		Nodes:      nodes,
+	}
+	if len(serial) > 0 {
+		new_job.Serial = serial
 	}
 	jobs = append(jobs, new_job)
 	if err := SaveJobs(jobs); err != nil {
@@ -243,10 +245,9 @@ func CancelJobs(job_ids map[int32]bool) (map[int32]pb.JobState, map[int32][]stri
 	if err != nil {
 		return nil, nil, err
 	}
+	job_ids = NormalizeJobIds(job_ids, jobs)
 	cancel_all := false
-	if _, ok := job_ids[JobId_Last]; ok && len(jobs) > 0 {
-		job_ids = map[int32]bool{jobs[len(jobs)-1].Id: false}
-	} else if _, ok := job_ids[JobId_All]; ok {
+	if _, ok := job_ids[JobId_All]; ok {
 		cancel_all = true
 	}
 	result := map[int32]pb.JobState{}
@@ -306,4 +307,20 @@ func CreateCommandFile(job_label, command string) (string, error) {
 		return file, err
 	}
 	return file, nil
+}
+
+func NormalizeJobIds(job_ids map[int32]bool, jobs []pb.Job) map[int32]bool {
+	var last_job_id int32
+	if len(jobs) > 0 {
+		last_job_id = jobs[len(jobs)-1].Id
+	}
+	positive_job_ids := map[int32]bool{}
+	for id, val := range job_ids {
+		if id < 0 {
+			positive_job_ids[id+last_job_id+1] = val
+		} else {
+			positive_job_ids[id] = val
+		}
+	}
+	return positive_job_ids
 }

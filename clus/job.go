@@ -15,7 +15,7 @@ import (
 
 const (
 	jobId_last = -1
-	jobId_all  = -2
+	jobId_all  = 0
 )
 
 func Job(args []string) {
@@ -60,36 +60,34 @@ func Job(args []string) {
 
 func ParseJobIds(args []string) map[int32]bool {
 	job_ids := map[int32]bool{}
-	if len(args) > 0 {
-		if len(args) == 1 && (args[0] == "*" || strings.ToLower(args[0]) == "all") {
-			job_ids[jobId_all] = false
-			return job_ids
-		}
-		for _, arg := range args {
-			for _, id := range strings.Split(arg, ",") {
-				var begin, end string
-				if parts := strings.Split(id, "-"); len(parts) == 1 {
-					begin = parts[0]
-					end = parts[0]
-				} else if len(parts) == 2 && len(parts[0]) > 0 && len(parts[1]) > 0 {
-					begin = parts[0]
-					end = parts[1]
-				} else {
-					fmt.Printf("Invalid job range: %q\n", id)
+	for _, arg := range args {
+		for _, id := range strings.Split(arg, ",") {
+			if id == "*" || strings.ToLower(id) == "all" {
+				job_ids[jobId_all] = false
+				continue
+			}
+			var begin, end string
+			if strings.Index(id, "-") <= 0 {
+				begin = id
+				end = id
+			} else if parts := strings.Split(id, "-"); len(parts) == 2 && len(parts[0]) > 0 && len(parts[1]) > 0 {
+				begin = parts[0]
+				end = parts[1]
+			} else {
+				fmt.Printf("Invalid job range: %q\n", id)
+				os.Exit(0)
+			}
+			ids := make([]int, 2)
+			for i, val := range []string{begin, end} {
+				if job_id, err := strconv.Atoi(strings.TrimSpace(val)); err != nil || job_id == 0 {
+					fmt.Printf("Invalid job id: %q\n", val)
 					os.Exit(0)
+				} else {
+					ids[i] = job_id
 				}
-				ids := make([]int, 2)
-				for i, val := range []string{begin, end} {
-					if job_id, err := strconv.Atoi(strings.TrimSpace(val)); err != nil || job_id <= 0 {
-						fmt.Printf("Invalid job id: %q\n", val)
-						os.Exit(0)
-					} else {
-						ids[i] = job_id
-					}
-				}
-				for i := ids[0]; i <= ids[1]; i++ {
-					job_ids[int32(i)] = false
-				}
+			}
+			for i := ids[0]; i <= ids[1]; i++ {
+				job_ids[int32(i)] = false
 			}
 		}
 	}
@@ -154,22 +152,6 @@ func GetJobs(headnode string, ids map[int32]bool) []*pb.Job {
 		os.Exit(0)
 	}
 	jobs := reply.GetJobs()
-	if _, ok := ids[jobId_all]; !ok && len(ids) > 0 {
-		for _, job := range jobs {
-			ids[job.Id] = true
-		}
-		no_jobs := []int{}
-		for k, v := range ids {
-			if !v {
-				no_jobs = append(no_jobs, int(k))
-			}
-		}
-		if len(no_jobs) > 0 {
-			sort.Ints(no_jobs)
-			fmt.Println("Can not get job(s):", no_jobs)
-			fmt.Println()
-		}
-	}
 	return jobs
 }
 
@@ -233,7 +215,6 @@ func JobPrintTable(jobs []*pb.Job) {
 }
 
 func JobPrintList(jobs []*pb.Job) {
-	fmt.Println(GetPaddingLine(""))
 	for _, job := range jobs {
 		fmt.Println("Id:", job.Id)
 		fmt.Println("State:", job.State)
