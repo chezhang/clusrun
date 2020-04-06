@@ -90,7 +90,7 @@ func CreateOutputDir() string {
 	return output_dir
 }
 
-func RunJob(headnode, command, serial, output_dir, pattern string, nodes []string, buffer_size, prompt int) {
+func RunJob(headnode, command, serial, output_dir, pattern string, nodes []string, cache_size, prompt int) {
 	// Setup connection
 	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
@@ -173,7 +173,7 @@ func RunJob(headnode, command, serial, output_dir, pattern string, nodes []strin
 	signal.Notify(ch, os.Interrupt)
 	go func() {
 		<-ch
-		Summary(cache, finished_nodes, failed_nodes, all_nodes, buffer_size, job_time)
+		Summary(cache, finished_nodes, failed_nodes, all_nodes, cache_size, job_time)
 		if len(all_nodes) > len(finished_nodes) {
 			fmt.Printf("Job %v is still running.\n", job_id)
 		}
@@ -193,7 +193,9 @@ func RunJob(headnode, command, serial, output_dir, pattern string, nodes []strin
 			node := output.GetNode()
 			stdout, stderr := output.GetStdout(), output.GetStderr()
 			content := stdout + stderr
-			if len(content) == 0 { // EOF
+
+			// End of output of a node
+			if len(content) == 0 {
 				state := "finished"
 				finished_nodes = append(finished_nodes, node)
 				exit_code := output.GetExitCode()
@@ -205,11 +207,12 @@ func RunJob(headnode, command, serial, output_dir, pattern string, nodes []strin
 				job_time = append(job_time, duration)
 				fmt.Printf("[%v/%v] Command %v on node %v in %v.\n", len(finished_nodes), len(all_nodes), state, node, duration)
 			} else {
-				if buffer_size > 0 {
+				// Cache output for summary
+				if cache_size > 0 {
 					// TODO: Consider changing the stdout/stderr type in stream from string to []rune to improve performance
 					cache[node] = append(cache[node], []rune(content)...) // Buffer output
 					// Use []rune instead of string/[]byte to prevent an unicode character from being splited when truncating the cache
-					if over_size := len(cache[node]) - (buffer_size + 1); over_size > 0 {
+					if over_size := len(cache[node]) - (cache_size + 1); over_size > 0 {
 						cache[node] = cache[node][over_size:]
 					}
 				}
@@ -220,7 +223,9 @@ func RunJob(headnode, command, serial, output_dir, pattern string, nodes []strin
 					fmt.Printf("[%v]: %v\n", node, content)
 				}
 			}
-			if len(output_dir) > 0 { // Save to file
+
+			// Save output to file
+			if len(output_dir) > 0 {
 				if _, err = f_stdout[node].WriteString(stdout); err == nil {
 					_, err = f_stderr[node].WriteString(stderr)
 				}
@@ -231,11 +236,11 @@ func RunJob(headnode, command, serial, output_dir, pattern string, nodes []strin
 			}
 		}
 	}
-	Summary(cache, finished_nodes, failed_nodes, all_nodes, buffer_size, job_time)
+	Summary(cache, finished_nodes, failed_nodes, all_nodes, cache_size, job_time)
 }
 
-func Summary(cache map[string][]rune, finished_nodes, failed_nodes, all_nodes []string, buffer_size int, job_time []time.Duration) {
-	if buffer_size > 0 {
+func Summary(cache map[string][]rune, finished_nodes, failed_nodes, all_nodes []string, cache_size int, job_time []time.Duration) {
+	if cache_size > 0 {
 		fmt.Println()
 		nodes := make([]string, 0, len(cache))
 		for node := range cache {
@@ -246,7 +251,7 @@ func Summary(cache map[string][]rune, finished_nodes, failed_nodes, all_nodes []
 			output := cache[node]
 			heading := fmt.Sprintf("---[%v]---", node)
 			fmt.Println(GetPaddingLine(heading))
-			if over_size := len(output) - buffer_size; over_size > 0 {
+			if over_size := len(output) - cache_size; over_size > 0 {
 				output = output[over_size:]
 				fmt.Printf("(Truncated)\n...")
 			}
