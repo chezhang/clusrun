@@ -27,6 +27,7 @@ func Run(args []string) {
 	cache := fs.Int("cache", 1000, "specify the number of characters to cache and display for output of command on each node")
 	prompt := fs.Int("prompt", 1, "specify the number of nodes, the output of which will be displayed promptly")
 	serial := fs.String("serial", "", "replace specified string in the command on each node to a serial number starting from 0")
+	background := fs.Bool("background", false, "run command without printing output")
 	// pick := fs.Int("pick", 0, "pick certain number of nodes to run, default 0 means pick all nodes")
 	// merge := fs.Bool("merge", false, "specify if merge outputs with the same content for different nodes")
 	fs.Parse(args)
@@ -44,7 +45,7 @@ func Run(args []string) {
 	if *dump {
 		output_dir = CreateOutputDir()
 	}
-	RunJob(ParseHeadnode(*headnode), command, *serial, output_dir, *pattern, ParseNodes(*nodes), *cache, *prompt)
+	RunJob(ParseHeadnode(*headnode), command, *serial, output_dir, *pattern, ParseNodes(*nodes), *cache, *prompt, *background)
 }
 
 func DisplayRunUsage(fs *flag.FlagSet) {
@@ -90,7 +91,9 @@ func CreateOutputDir() string {
 	return output_dir
 }
 
-func RunJob(headnode, command, serial, output_dir, pattern string, nodes []string, cache_size, prompt int) {
+func RunJob(headnode, command, serial, output_dir, pattern string, nodes []string, cache_size, prompt int, background bool) {
+	dump := len(output_dir) > 0
+
 	// Setup connection
 	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
@@ -126,16 +129,23 @@ func RunJob(headnode, command, serial, output_dir, pattern string, nodes []strin
 		all_nodes = output.GetNodes()
 		job_id = output.GetJobId()
 		fmt.Printf("Job %v started on %v node(s) in cluster %v.\n", job_id, len(all_nodes), headnode)
-		fmt.Println()
-		fmt.Println(GetPaddingLine("---Command---"))
-		fmt.Println(command)
-		fmt.Println(GetPaddingLine(""))
-		fmt.Println()
+		if dump {
+			fmt.Println("Dumping output to", output_dir)
+		} else if background {
+			return
+		}
+		if !background {
+			fmt.Println()
+			fmt.Println(GetPaddingLine("---Command---"))
+			fmt.Println(command)
+			fmt.Println(GetPaddingLine(""))
+			fmt.Println()
+		}
 	}
 
 	// Create output file
 	var f_stdout, f_stderr map[string]*os.File
-	if len(output_dir) > 0 {
+	if dump {
 		f_stdout = make(map[string]*os.File, len(all_nodes))
 		f_stderr = make(map[string]*os.File, len(all_nodes))
 		for _, node := range all_nodes {
@@ -194,38 +204,40 @@ func RunJob(headnode, command, serial, output_dir, pattern string, nodes []strin
 			stdout, stderr := output.GetStdout(), output.GetStderr()
 			content := stdout + stderr
 
-			// End of output of a node
-			if len(content) == 0 {
-				state := "finished"
-				finished_nodes = append(finished_nodes, node)
-				exit_code := output.GetExitCode()
-				if exit_code != 0 {
-					state = fmt.Sprintf("failed with exit code %v", exit_code)
-					failed_nodes = append(failed_nodes, node)
-				}
-				duration := time.Now().Sub(start_time)
-				job_time = append(job_time, duration)
-				fmt.Printf("[%v/%v] Command %v on node %v in %v.\n", len(finished_nodes), len(all_nodes), state, node, duration)
-			} else {
-				// Cache output for summary
-				if cache_size > 0 {
-					// TODO: Consider changing the stdout/stderr type in stream from string to []rune to improve performance
-					cache[node] = append(cache[node], []rune(content)...) // Buffer output
-					// Use []rune instead of string/[]byte to prevent an unicode character from being splited when truncating the cache
-					if over_size := len(cache[node]) - (cache_size + 1); over_size > 0 {
-						cache[node] = cache[node][over_size:]
+			if !background {
+				// End of output of a node
+				if len(content) == 0 {
+					state := "finished"
+					finished_nodes = append(finished_nodes, node)
+					exit_code := output.GetExitCode()
+					if exit_code != 0 {
+						state = fmt.Sprintf("failed with exit code %v", exit_code)
+						failed_nodes = append(failed_nodes, node)
 					}
-				}
+					duration := time.Now().Sub(start_time)
+					job_time = append(job_time, duration)
+					fmt.Printf("[%v/%v] Command %v on node %v in %v.\n", len(finished_nodes), len(all_nodes), state, node, duration)
+				} else {
+					// Cache output for summary
+					if cache_size > 0 {
+						// TODO: Consider changing the stdout/stderr type in stream from string to []rune to improve performance
+						cache[node] = append(cache[node], []rune(content)...) // Buffer output
+						// Use []rune instead of string/[]byte to prevent an unicode character from being splited when truncating the cache
+						if over_size := len(cache[node]) - (cache_size + 1); over_size > 0 {
+							cache[node] = cache[node][over_size:]
+						}
+					}
 
-				// Print output promptly
-				content = strings.TrimSpace(content)
-				if _, ok := prompt_nodes[node]; ok && len(content) > 0 {
-					fmt.Printf("[%v]: %v\n", node, content)
+					// Print output promptly
+					content = strings.TrimSpace(content)
+					if _, ok := prompt_nodes[node]; ok && len(content) > 0 {
+						fmt.Printf("[%v]: %v\n", node, content)
+					}
 				}
 			}
 
 			// Save output to file
-			if len(output_dir) > 0 {
+			if dump {
 				if _, err = f_stdout[node].WriteString(stdout); err == nil {
 					_, err = f_stderr[node].WriteString(stderr)
 				}
@@ -236,7 +248,9 @@ func RunJob(headnode, command, serial, output_dir, pattern string, nodes []strin
 			}
 		}
 	}
-	Summary(cache, finished_nodes, failed_nodes, all_nodes, cache_size, job_time)
+	if !background {
+		Summary(cache, finished_nodes, failed_nodes, all_nodes, cache_size, job_time)
+	}
 }
 
 func Summary(cache map[string][]rune, finished_nodes, failed_nodes, all_nodes []string, cache_size int, job_time []time.Duration) {
