@@ -85,11 +85,12 @@ enum JobState {
 message Job {
   int32 id = 1;
   string command = 2;
-  repeated string nodes = 3;
-  int64 create_time = 4;
-  int64 end_time = 5;
-  JobState state = 6;
-  repeated string cancel_failed_nodes = 7;
+  string serial = 3;
+  repeated string nodes = 4;
+  int64 create_time = 5;
+  int64 end_time = 6;
+  JobState state = 7;
+  repeated string cancel_failed_nodes = 8;
 }
 
 message GetJobsReply {
@@ -112,6 +113,7 @@ message StartClusJobRequest {
   repeated string nodes = 2;
   string pattern = 3;
   string group = 4;
+  string serial = 5;
 }
 
 message StartClusJobReply {

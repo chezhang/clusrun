@@ -26,6 +26,7 @@ func Run(args []string) {
 	pattern := fs.String("pattern", "", "specify nodes matching a certain regular expression pattern to run the command")
 	cache := fs.Int("cache", 1000, "specify the number of characters to cache and display for output of command on each node")
 	immediate := fs.Int("immediate", 1, "specify the number of nodes, the output of which will be displayed immediately")
+	serial := fs.String("serial", "", "replace specified string in the command on each node to a serial number starting from 0")
 	// pick := fs.Int("pick", 0, "pick certain number of nodes to run, default 0 means pick all nodes")
 	// merge := fs.Bool("merge", false, "specify if merge outputs with the same content for different nodes")
 	fs.Parse(args)
@@ -43,7 +44,7 @@ func Run(args []string) {
 	if *dump {
 		output_dir = CreateOutputDir()
 	}
-	RunJob(ParseHeadnode(*headnode), command, output_dir, *pattern, ParseNodes(*nodes), *cache, *immediate)
+	RunJob(ParseHeadnode(*headnode), command, *serial, output_dir, *pattern, ParseNodes(*nodes), *cache, *immediate)
 }
 
 func DisplayRunUsage(fs *flag.FlagSet) {
@@ -89,7 +90,7 @@ func CreateOutputDir() string {
 	return output_dir
 }
 
-func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffer_size, immediate int) {
+func RunJob(headnode, command, serial, output_dir, pattern string, nodes []string, buffer_size, immediate int) {
 	// Setup connection
 	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
@@ -109,7 +110,7 @@ func RunJob(headnode, command, output_dir, pattern string, nodes []string, buffe
 	// 3. set ctx = context.WithTimeout(context.Background(), 10 * time.Second): out.Send() on headnode get error code = Canceled
 
 	// Start job
-	stream, err := c.StartClusJob(ctx, &pb.StartClusJobRequest{Command: command, Pattern: pattern, Nodes: nodes})
+	stream, err := c.StartClusJob(ctx, &pb.StartClusJobRequest{Command: command, Serial: serial, Pattern: pattern, Nodes: nodes})
 	if err != nil {
 		fmt.Println("Failed to start job:", err)
 		return

@@ -9,6 +9,8 @@ import (
 	"math"
 	"os"
 	"regexp"
+	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -109,11 +111,13 @@ func (s *headnode_server) GetJobs(ctx context.Context, in *pb.GetJobsRequest) (*
 
 func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headnode_StartClusJobServer) error {
 	defer LogPanicBeforeExit()
-	command, nodes, pattern := in.GetCommand(), in.GetNodes(), in.GetPattern()
+	command, nodes, pattern, serial := in.GetCommand(), in.GetNodes(), in.GetPattern(), in.GetSerial()
 	LogInfo("Creating new job with command: %v", command)
 
 	// Get nodes
 	nodes, invalid_nodes := GetValidNodes(nodes, pattern)
+	sort.Strings(nodes)
+	sort.Strings(invalid_nodes)
 	if len(invalid_nodes) > 0 {
 		LogWarning("Invalid nodes to create job: %v", invalid_nodes)
 		return errors.New(fmt.Sprintf("Invalid nodes (%v): %v", len(invalid_nodes), invalid_nodes))
@@ -125,7 +129,7 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	}
 
 	// Create job
-	id, err := CreateNewJob(command, nodes)
+	id, err := CreateNewJob(command, serial, nodes)
 	if err != nil {
 		LogError("Failed to create job: %v", err)
 		return err
@@ -139,9 +143,13 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	UpdateJobState(id, pb.JobState_Created, pb.JobState_Dispatching)
 	wg := sync.WaitGroup{}
 	var job_on_nodes sync.Map
-	for _, node := range nodes {
+	for i, node := range nodes {
 		wg.Add(1)
-		go StartJobOnNode(id, command, node, &job_on_nodes, out, &wg, Config_Headnode_StoreOutput.GetBool())
+		c := command
+		if len(serial) > 0 {
+			c = strings.ReplaceAll(command, serial, strconv.Itoa(i))
+		}
+		go StartJobOnNode(id, c, node, &job_on_nodes, out, &wg, Config_Headnode_StoreOutput.GetBool())
 	}
 
 	// Wait for all jobs finish

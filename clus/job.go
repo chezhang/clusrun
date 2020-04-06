@@ -221,6 +221,12 @@ func JobPrintList(jobs []*pb.Job) {
 		fmt.Println("Create Time:", time.Unix(job.CreateTime, 0))
 		fmt.Println("End Time:", time.Unix(job.EndTime, 0))
 		fmt.Println("Nodes:", job.Nodes)
+		if serial := job.Serial; len(serial) > 0 {
+			fmt.Println("Serial:", serial)
+		}
+		if cancelFailedNodes := job.CancelFailedNodes; len(cancelFailedNodes) > 0 {
+			fmt.Println("CancelFailedNodes:", cancelFailedNodes)
+		}
 		fmt.Println("Command:", job.Command)
 		fmt.Println(GetPaddingLine(""))
 	}
