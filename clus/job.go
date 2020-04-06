@@ -23,6 +23,7 @@ func Job(args []string) {
 	headnode := fs.String("headnode", LocalHost, "specify the headnode to connect")
 	format := fs.String("format", "", "format the jobs in table or list")
 	cancel := fs.Bool("cancel", false, "cancel jobs")
+	rerun := fs.Bool("rerun", false, "rerun a job")
 	// output := fs.Bool("output", false, "get output of job(s)")
 	// nodes := fs.String("nodes", "", "get info or output of jobs on certain nodes")
 	// state := fs.String("state", "", "get jobs in certain state")
@@ -34,12 +35,26 @@ func Job(args []string) {
 			job_ids[jobId_last] = false
 		}
 		CancelJobs(ParseHeadnode(*headnode), job_ids)
-		return
+		if !*rerun {
+			return
+		}
 	}
 	if no_job_args {
 		job_ids[jobId_all] = false
 	}
 	jobs := GetJobs(ParseHeadnode(*headnode), job_ids)
+	if *rerun {
+		if len(jobs) > 1 {
+			fmt.Println("Please specify only 1 job to rerun.")
+		} else if len(jobs) == 0 {
+			fmt.Println("No job to rerun.")
+		} else {
+			job := jobs[0]
+			fmt.Printf("Rerun job %v: ", job.Id)
+			RunJob(ParseHeadnode(*headnode), job.Command, job.Serial, "", "", job.Nodes, 0, 0, true)
+		}
+		return
+	}
 	if len(*format) == 0 {
 		if no_job_args {
 			*format = "table"
