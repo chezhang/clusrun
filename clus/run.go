@@ -25,7 +25,7 @@ func Run(args []string) {
 	nodes := fs.String("nodes", "", "specify certain nodes to run the command")
 	pattern := fs.String("pattern", "", "specify nodes matching a certain regular expression pattern to run the command")
 	cache := fs.Int("cache", 1000, "specify the number of characters to cache and display for output of command on each node")
-	immediate := fs.Int("immediate", 1, "specify the number of nodes, the output of which will be displayed immediately")
+	prompt := fs.Int("prompt", 1, "specify the number of nodes, the output of which will be displayed promptly")
 	serial := fs.String("serial", "", "replace specified string in the command on each node to a serial number starting from 0")
 	// pick := fs.Int("pick", 0, "pick certain number of nodes to run, default 0 means pick all nodes")
 	// merge := fs.Bool("merge", false, "specify if merge outputs with the same content for different nodes")
@@ -44,7 +44,7 @@ func Run(args []string) {
 	if *dump {
 		output_dir = CreateOutputDir()
 	}
-	RunJob(ParseHeadnode(*headnode), command, *serial, output_dir, *pattern, ParseNodes(*nodes), *cache, *immediate)
+	RunJob(ParseHeadnode(*headnode), command, *serial, output_dir, *pattern, ParseNodes(*nodes), *cache, *prompt)
 }
 
 func DisplayRunUsage(fs *flag.FlagSet) {
@@ -90,7 +90,7 @@ func CreateOutputDir() string {
 	return output_dir
 }
 
-func RunJob(headnode, command, serial, output_dir, pattern string, nodes []string, buffer_size, immediate int) {
+func RunJob(headnode, command, serial, output_dir, pattern string, nodes []string, buffer_size, prompt int) {
 	// Setup connection
 	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
@@ -154,15 +154,15 @@ func RunJob(headnode, command, serial, output_dir, pattern string, nodes []strin
 		}
 	}
 
-	// Pick nodes whose output will be displayed immediately
-	if immediate < 0 {
-		immediate = 0
-	} else if immediate > len(all_nodes) {
-		immediate = len(all_nodes)
+	// Pick nodes whose output will be displayed promptly
+	if prompt < 0 {
+		prompt = 0
+	} else if prompt > len(all_nodes) {
+		prompt = len(all_nodes)
 	}
-	immediate_nodes := make(map[string]bool, immediate)
-	for i := 0; i < immediate; i++ {
-		immediate_nodes[all_nodes[i]] = true
+	prompt_nodes := make(map[string]bool, prompt)
+	for i := 0; i < prompt; i++ {
+		prompt_nodes[all_nodes[i]] = true
 	}
 
 	// Initialize output cache
@@ -213,8 +213,10 @@ func RunJob(headnode, command, serial, output_dir, pattern string, nodes []strin
 						cache[node] = cache[node][over_size:]
 					}
 				}
+
+				// Print output promptly
 				content = strings.TrimSpace(content)
-				if _, ok := immediate_nodes[node]; ok && len(content) > 0 { // Print immediately
+				if _, ok := prompt_nodes[node]; ok && len(content) > 0 {
 					fmt.Printf("[%v]: %v\n", node, content)
 				}
 			}
