@@ -278,6 +278,7 @@ func UpdateCancelledJob(id int32, cancel_failed_nodes []string) {
 	}
 	for i := range jobs {
 		if jobs[i].Id == id {
+			jobs[i].EndTime = time.Now().Unix()
 			if len(cancel_failed_nodes) == 0 {
 				jobs[i].State = pb.JobState_Canceled
 				LogInfo("Job %v is canceled", id)
