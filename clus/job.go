@@ -233,9 +233,11 @@ func JobPrintList(jobs []*pb.Job) {
 	for _, job := range jobs {
 		fmt.Println("Id:", job.Id)
 		fmt.Println("State:", job.State)
-		fmt.Println("Create Time:", time.Unix(job.CreateTime, 0))
-		fmt.Println("End Time:", time.Unix(job.EndTime, 0))
 		fmt.Println("Nodes:", job.Nodes)
+		fmt.Println("Create Time:", time.Unix(job.CreateTime, 0))
+		if endTime := job.EndTime; endTime > 0 {
+			fmt.Println("End Time:", time.Unix(endTime, 0))
+		}
 		if serial := job.Serial; len(serial) > 0 {
 			fmt.Println("Serial:", serial)
 		}
