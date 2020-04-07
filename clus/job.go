@@ -233,7 +233,7 @@ func JobPrintList(jobs []*pb.Job) {
 	for _, job := range jobs {
 		fmt.Println("Id:", job.Id)
 		fmt.Println("State:", job.State)
-		fmt.Println("Nodes:", job.Nodes)
+		fmt.Println("Nodes:", strings.Join(job.Nodes, ", "))
 		fmt.Println("Create Time:", time.Unix(job.CreateTime, 0))
 		if endTime := job.EndTime; endTime > 0 {
 			fmt.Println("End Time:", time.Unix(endTime, 0))
@@ -241,8 +241,20 @@ func JobPrintList(jobs []*pb.Job) {
 		if serial := job.Serial; len(serial) > 0 {
 			fmt.Println("Serial:", serial)
 		}
+		if failedNodes := job.FailedNodes; len(failedNodes) > 0 {
+			nodes := make([]string, 0, len(failedNodes))
+			for node := range failedNodes {
+				nodes = append(nodes, node)
+			}
+			sort.Strings(nodes)
+			exitcodes := make([]string, 0, len(nodes))
+			for _, node := range nodes {
+				exitcodes = append(exitcodes, fmt.Sprintf("%v -> %v", node, failedNodes[node]))
+			}
+			fmt.Println("FailedNodes:", strings.Join(exitcodes, ", "))
+		}
 		if cancelFailedNodes := job.CancelFailedNodes; len(cancelFailedNodes) > 0 {
-			fmt.Println("CancelFailedNodes:", cancelFailedNodes)
+			fmt.Println("CancelFailedNodes:", strings.Join(cancelFailedNodes, ", "))
 		}
 		fmt.Println("Command:", job.Command)
 		fmt.Println(GetPaddingLine(""))

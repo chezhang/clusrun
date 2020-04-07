@@ -90,7 +90,8 @@ message Job {
   int64 create_time = 5;
   int64 end_time = 6;
   JobState state = 7;
-  repeated string cancel_failed_nodes = 8;
+  map<string, int32> failed_nodes = 8;
+  repeated string cancel_failed_nodes = 9;
 }
 
 message GetJobsReply {

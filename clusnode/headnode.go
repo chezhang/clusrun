@@ -24,6 +24,11 @@ var (
 	validateNumber sync.Map
 )
 
+type jobOnNode struct {
+	state    pb.JobState
+	exitCode int32
+}
+
 type headnode_server struct {
 	pb.UnimplementedHeadnodeServer
 }
@@ -31,7 +36,7 @@ type headnode_server struct {
 func (s *headnode_server) Heartbeat(ctx context.Context, in *pb.HeartbeatRequest) (*pb.Empty, error) {
 	defer LogPanicBeforeExit()
 	nodename, host := in.GetNodename(), in.GetHost()
-	if strings.ContainsAny(nodename, "()") { // TODO: support nodename containing "(" or ")" by using a map of host -> display name
+	if strings.ContainsAny(nodename, "()") { // TODO: support nodename containing "(" or ")" by using a map of host -> display name, display name -> host should also be considered when parsing node from request input
 		LogError("Invalid nodename in heartbeat: %v", nodename)
 		return &pb.Empty{}, errors.New("Invalid nodename: " + nodename)
 	}
@@ -151,11 +156,24 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 		}
 		go StartJobOnNode(id, c, node, &job_on_nodes, out, &wg, Config_Headnode_StoreOutput.GetBool())
 	}
-
-	// Wait for all jobs finish
 	UpdateJobState(id, pb.JobState_Dispatching, pb.JobState_Running)
 	wg.Wait()
-	EndJob(id, pb.JobState_Running, pb.JobState_Finished) // TODO: Set state failed if job on any node failed
+
+	// Update job in DB
+	failedNodes := map[string]int32{}
+	job_on_nodes.Range(func(key interface{}, val interface{}) bool {
+		nodename := key.(string)
+		j := val.(jobOnNode)
+		if j.state == pb.JobState_Failed {
+			failedNodes[nodename] = j.exitCode
+		}
+		return true
+	})
+	if len(failedNodes) > 0 {
+		UpdateFailedJob(id, failedNodes)
+	} else {
+		UpdateFinishedJob(id)
+	}
 	return nil
 }
 
@@ -289,7 +307,7 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 		defer f_out.Close()
 		defer f_err.Close()
 	}
-	job_on_nodes.Store(node, pb.JobState_Dispatching)
+	job_on_nodes.Store(node, jobOnNode{state: pb.JobState_Dispatching})
 
 	// Setup connection
 	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
@@ -307,20 +325,20 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 	stream, err := c.StartJob(ctx, &pb.StartJobRequest{JobId: int32(id), Command: command, Headnode: NodeHost})
 	if err != nil {
 		LogError("Failed to start job %v on node %v: %v", id, node, err)
-		job_on_nodes.Store(node, pb.JobState_Failed)
+		job_on_nodes.Store(node, jobOnNode{state: pb.JobState_Failed})
 		return
 	} else {
-		job_on_nodes.Store(node, pb.JobState_Running)
+		job_on_nodes.Store(node, jobOnNode{state: pb.JobState_Running})
 	}
 
 	// Save and redirect output
-	exit_code := 0
+	var exit_code int32 = -1
 	failing_to_redirect := false
 	for {
 		output, err := stream.Recv()
 		if err == io.EOF {
 			LogInfo("Job %v on node %v finished with exit code %v", id, node, exit_code)
-			if err := out.Send(&pb.StartClusJobReply{Node: node, ExitCode: int32(exit_code)}); err != nil {
+			if err := out.Send(&pb.StartClusJobReply{Node: node, ExitCode: exit_code}); err != nil {
 				LogWarning("Failed to redirect exit code of job %v on node %v: %v", id, node, err)
 			}
 			break
@@ -360,10 +378,14 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 					failing_to_redirect = false
 				}
 			}
-			exit_code = int(output.GetExitCode())
+			exit_code = output.GetExitCode()
 		}
 	}
-	job_on_nodes.Store(node, pb.JobState_Finished)
+	if exit_code == 0 {
+		job_on_nodes.Store(node, jobOnNode{state: pb.JobState_Finished})
+	} else {
+		job_on_nodes.Store(node, jobOnNode{state: pb.JobState_Failed, exitCode: exit_code})
+	}
 }
 
 func CancelJob(id int32, nodes []string) {

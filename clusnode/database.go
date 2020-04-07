@@ -50,13 +50,13 @@ func InitDatabase() {
 		}
 		jobs_id := make(map[int32]bool, len(jobs))
 		for i := range jobs {
-			if IsActiveState(jobs[i].State) {
+			if isActiveState(jobs[i].State) {
 				jobs[i].State = pb.JobState_Canceling
 				// TODO: add job to cancel list
 			}
 			jobs_id[jobs[i].Id] = true
 		}
-		if err := SaveJobs(jobs); err != nil {
+		if err := saveJobs(jobs); err != nil {
 			LogFatality("Failed to save jobs: %v", err)
 		}
 
@@ -70,7 +70,7 @@ func InitDatabase() {
 			if id, err := strconv.Atoi(job_id); err != nil || !f.IsDir() {
 				LogFatality("Unexpected database item %v in %v", job_id, db_outputDir)
 			} else if _, ok := jobs_id[int32(id)]; !ok {
-				CleanupOutputDir(id)
+				cleanupOutputDir(id)
 			}
 		}
 	}
@@ -90,7 +90,7 @@ func CreateNewJob(command string, serial string, nodes []string) (int, error) {
 		last_id = int(last_job.Id)
 	}
 	var olds []int
-	if jobs, olds, err = CleanupOldJobs(jobs); err != nil {
+	if jobs, olds, err = cleanupOldJobs(jobs); err != nil {
 		return -1, err
 	}
 	new_id := last_id + 1
@@ -105,31 +105,31 @@ func CreateNewJob(command string, serial string, nodes []string) (int, error) {
 		new_job.Serial = serial
 	}
 	jobs = append(jobs, new_job)
-	if err := SaveJobs(jobs); err != nil {
+	if err := saveJobs(jobs); err != nil {
 		return -1, err
 	}
 
 	// Cleanup output dir of old jobs
 	for _, id := range olds {
-		go CleanupOutputDir(id)
+		go cleanupOutputDir(id)
 	}
 
 	// Create output dir of new job
-	if err := os.MkdirAll(GetOutputDir(new_id), 0644); err != nil {
+	if err := os.MkdirAll(getOutputDir(new_id), 0644); err != nil {
 		return -1, err
 	}
 
 	return new_id, nil
 }
 
-func CleanupOutputDir(job_id int) {
+func cleanupOutputDir(job_id int) {
 	LogInfo("Clean up output dir of job %v", job_id)
-	if err := os.RemoveAll(GetOutputDir(job_id)); err != nil {
+	if err := os.RemoveAll(getOutputDir(job_id)); err != nil {
 		LogWarning("Failed to cleanup output dir of job %v: %v", job_id, err)
 	}
 }
 
-func CleanupOldJobs(jobs []pb.Job) ([]pb.Job, []int, error) {
+func cleanupOldJobs(jobs []pb.Job) ([]pb.Job, []int, error) {
 	max_job_count := Config_Headnode_MaxJobCount.GetInt()
 	active := []pb.Job{}
 	to_clean := []int{}
@@ -138,7 +138,7 @@ func CleanupOldJobs(jobs []pb.Job) ([]pb.Job, []int, error) {
 			message := fmt.Sprintf("Job count reaches the capacity %v and all %v jobs are active", max_job_count, len(active))
 			return nil, nil, errors.New(message)
 		}
-		if IsActiveState(jobs[0].State) {
+		if isActiveState(jobs[0].State) {
 			active = append(active, jobs[0])
 		} else {
 			to_clean = append(to_clean, int(jobs[0].Id))
@@ -153,7 +153,7 @@ func CleanupOldJobs(jobs []pb.Job) ([]pb.Job, []int, error) {
 }
 
 // TODO: Compress nodes
-func SaveJobs(jobs []pb.Job) error {
+func saveJobs(jobs []pb.Job) error {
 	if json_string, err := json.MarshalIndent(jobs, "", "    "); err != nil {
 		return err
 	} else if err := ioutil.WriteFile(db_jobs, json_string, 0644); err != nil {
@@ -174,7 +174,7 @@ func LoadJobs() ([]pb.Job, error) {
 	return jobs, nil
 }
 
-func IsActiveState(state pb.JobState) bool {
+func isActiveState(state pb.JobState) bool {
 	return state == pb.JobState_Dispatching || state == pb.JobState_Running || state == pb.JobState_Canceling
 }
 
@@ -196,46 +196,60 @@ func UpdateJobState(id int, from, to pb.JobState) error {
 			break
 		}
 	}
-	if err := SaveJobs(jobs); err != nil {
+	if err := saveJobs(jobs); err != nil {
 		return err
 	}
 	LogInfo("Job %v state changed from %v to %v", id, from, to)
 	return nil
 }
 
-func GetOutputDir(id int) string {
-	return filepath.Join(db_outputDir, strconv.Itoa(id))
-}
-
-func GetOutputFile(id int, node string) (string, string) {
-	file := filepath.Join(GetOutputDir(id), strings.ReplaceAll(node, ":", "."))
-	return file + ".out", file + ".err"
-}
-
-func EndJob(id int, from, to pb.JobState) error {
+func UpdateFinishedJob(id int) {
 	db_jobsLock.Lock()
 	defer db_jobsLock.Unlock()
 	jobs, err := LoadJobs()
 	if err != nil {
-		return err
+		LogError("Failed to load jobs when finishing job %v: %v", id, err)
+		return
 	}
 	for i := range jobs {
 		if int(jobs[i].Id) == id {
-			jobs[i].EndTime = time.Now().Unix()
-			if jobs[i].State == from {
-				jobs[i].State = to
-			} else {
-				LogWarning("Skip changing job %v state from %v to %v (Current state: %v)", id, from, to, jobs[i].State)
-				return nil
+			if jobs[i].State == pb.JobState_Running {
+				jobs[i].EndTime = time.Now().Unix()
+				jobs[i].State = pb.JobState_Finished
 			}
 			break
 		}
 	}
-	if err := SaveJobs(jobs); err != nil {
-		return err
+	if err := saveJobs(jobs); err != nil {
+		LogError("Failed to save jobs when finishing job %v: %v", id, err)
+		return
 	}
-	LogInfo("Job %v ended with state %v", id, to)
-	return nil
+	LogInfo("Job %v finished", id)
+}
+
+func UpdateFailedJob(id int, exitCodes map[string]int32) {
+	db_jobsLock.Lock()
+	defer db_jobsLock.Unlock()
+	jobs, err := LoadJobs()
+	if err != nil {
+		LogError("Failed to load jobs when failing job %v: %v", id, err)
+		return
+	}
+	for i := range jobs {
+		if int(jobs[i].Id) == id {
+			if jobs[i].State == pb.JobState_Running {
+				jobs[i].EndTime = time.Now().Unix()
+				jobs[i].State = pb.JobState_Failed
+			}
+			jobs[i].FailedNodes = exitCodes
+			break
+		}
+	}
+	if err := saveJobs(jobs); err != nil {
+		LogError("Failed to save jobs when failing job %v: %v", id, err)
+		return
+	}
+	LogInfo("Job %v failed", id)
 }
 
 func CancelJobs(job_ids map[int32]bool) (map[int32]pb.JobState, map[int32][]string, error) {
@@ -255,14 +269,14 @@ func CancelJobs(job_ids map[int32]bool) (map[int32]pb.JobState, map[int32][]stri
 	for i := range jobs {
 		id := jobs[i].Id
 		if _, ok := job_ids[id]; ok || cancel_all {
-			if IsActiveState(jobs[i].State) {
+			if isActiveState(jobs[i].State) {
 				jobs[i].State = pb.JobState_Canceling
 				to_cancel[id] = jobs[i].Nodes
 			}
 			result[id] = jobs[i].State
 		}
 	}
-	if err := SaveJobs(jobs); err != nil {
+	if err := saveJobs(jobs); err != nil {
 		return nil, nil, err
 	}
 	return result, to_cancel, nil
@@ -273,7 +287,7 @@ func UpdateCancelledJob(id int32, cancel_failed_nodes []string) {
 	defer db_jobsLock.Unlock()
 	jobs, err := LoadJobs()
 	if err != nil {
-		LogError("Failed to load jobs for saving cancellation result of job %v: %v", id, err)
+		LogError("Failed to load jobs when cancelling job %v: %v", id, err)
 		return
 	}
 	for i := range jobs {
@@ -281,19 +295,19 @@ func UpdateCancelledJob(id int32, cancel_failed_nodes []string) {
 			jobs[i].EndTime = time.Now().Unix()
 			if len(cancel_failed_nodes) == 0 {
 				jobs[i].State = pb.JobState_Canceled
-				LogInfo("Job %v is canceled", id)
 			} else {
 				jobs[i].State = pb.JobState_CancelFailed
 				jobs[i].CancelFailedNodes = cancel_failed_nodes
-				LogWarning("Cancellation of job %v failed for nodes: %v", id, cancel_failed_nodes)
+				LogWarning("Cancellation of job %v failed on nodes: %v", id, cancel_failed_nodes)
 			}
 			break
 		}
 	}
-	if err := SaveJobs(jobs); err != nil {
-		LogError("Failed to save cancellation result of job %v: %v", id, err)
+	if err := saveJobs(jobs); err != nil {
+		LogError("Failed to save jobs when cancelling job %v: %v", id, err)
 		return
 	}
+	LogInfo("Job %v cancelled", id)
 }
 
 func CreateCommandFile(job_label, command string) (string, error) {
@@ -308,6 +322,15 @@ func CreateCommandFile(job_label, command string) (string, error) {
 		return file, err
 	}
 	return file, nil
+}
+
+func getOutputDir(id int) string {
+	return filepath.Join(db_outputDir, strconv.Itoa(id))
+}
+
+func GetOutputFile(id int, node string) (string, string) {
+	file := filepath.Join(getOutputDir(id), strings.ReplaceAll(node, ":", "."))
+	return file + ".out", file + ".err"
 }
 
 func NormalizeJobIds(job_ids map[int32]bool, jobs []pb.Job) map[int32]bool {
