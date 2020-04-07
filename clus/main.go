@@ -5,23 +5,11 @@ import (
 	"golang.org/x/crypto/ssh/terminal"
 	"os"
 	"strings"
-	"time"
-)
-
-const (
-	DefaultPort       = "50505"
-	LocalHost         = "localhost:" + DefaultPort
-	ConnectTimeout    = 30 * time.Second
-	DefaultLineLength = 60
-)
-
-var (
-	ConsoleWidth = 0
 )
 
 func main() {
 	if len(os.Args) < 2 {
-		DisplayUsage()
+		displayUsage()
 		return
 	}
 	var err error
@@ -37,11 +25,11 @@ func main() {
 	case "job":
 		Job(args)
 	default:
-		DisplayUsage()
+		displayUsage()
 	}
 }
 
-func DisplayUsage() {
+func displayUsage() {
 	fmt.Printf(`
 Usage: 
 	clus <command> [arguments]
@@ -63,28 +51,4 @@ Usage of job:
 	clus job [options] [jobs]
 	clus job -h
 `)
-}
-
-func ParseHeadnode(headnode string) string {
-	if strings.Contains(headnode, ":") {
-		return headnode
-	} else {
-		return headnode + ":" + DefaultPort
-	}
-}
-
-func GetPaddingLine(heading string) string {
-	padding := "-"
-	line_length := DefaultLineLength
-	if ConsoleWidth > 0 {
-		line_length = ConsoleWidth - 1
-	}
-	if padding_length := line_length - len(heading); padding_length > 0 {
-		paddings := strings.Repeat(padding, padding_length/2)
-		heading = fmt.Sprintf("%v%v%v", paddings, heading, paddings)
-		if len(heading) < line_length {
-			heading += padding
-		}
-	}
-	return heading
 }
