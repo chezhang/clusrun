@@ -230,16 +230,23 @@ func JobPrintTable(jobs []*pb.Job) {
 }
 
 func JobPrintList(jobs []*pb.Job) {
+	item_id, item_state, item_nodes, item_createTime, item_endTime, item_serial, item_failedNodes, item_cancelFailedNodes, item_command :=
+		"Id", "State", "Nodes", "Create Time", "End Time", "Serial Placeholder", "Failed Nodes", "Cancel Failed Nodes", "Command"
+	maxLength := MaxInt(len(item_id), len(item_state), len(item_nodes), len(item_createTime), len(item_endTime),
+		len(item_serial), len(item_failedNodes), len(item_cancelFailedNodes), len(item_command))
+	print := func(name string, value interface{}) {
+		fmt.Printf("%-*v : %v\n", maxLength, name, value)
+	}
 	for _, job := range jobs {
-		fmt.Println("Id:", job.Id)
-		fmt.Println("State:", job.State)
-		fmt.Println("Nodes:", strings.Join(job.Nodes, ", "))
-		fmt.Println("Create Time:", time.Unix(job.CreateTime, 0))
+		print(item_id, job.Id)
+		print(item_state, job.State)
+		print(item_nodes, strings.Join(job.Nodes, ", "))
+		print(item_createTime, time.Unix(job.CreateTime, 0))
 		if endTime := job.EndTime; endTime > 0 {
-			fmt.Println("End Time:", time.Unix(endTime, 0))
+			print(item_endTime, time.Unix(endTime, 0))
 		}
 		if serial := job.Serial; len(serial) > 0 {
-			fmt.Println("Serial:", serial)
+			print(item_serial, serial)
 		}
 		if failedNodes := job.FailedNodes; len(failedNodes) > 0 {
 			nodes := make([]string, 0, len(failedNodes))
@@ -247,16 +254,17 @@ func JobPrintList(jobs []*pb.Job) {
 				nodes = append(nodes, node)
 			}
 			sort.Strings(nodes)
-			exitcodes := make([]string, 0, len(nodes))
-			for _, node := range nodes {
-				exitcodes = append(exitcodes, fmt.Sprintf("%v -> %v", node, failedNodes[node]))
+			for i := range nodes {
+				if exitcode := failedNodes[nodes[i]]; exitcode != 0 {
+					nodes[i] += fmt.Sprintf(" -> %v", exitcode)
+				}
 			}
-			fmt.Println("FailedNodes:", strings.Join(exitcodes, ", "))
+			print(item_failedNodes, strings.Join(nodes, ", "))
 		}
 		if cancelFailedNodes := job.CancelFailedNodes; len(cancelFailedNodes) > 0 {
-			fmt.Println("CancelFailedNodes:", strings.Join(cancelFailedNodes, ", "))
+			print(item_cancelFailedNodes, strings.Join(cancelFailedNodes, ", "))
 		}
-		fmt.Println("Command:", job.Command)
+		print(item_command, job.Command)
 		fmt.Println(GetPaddingLine(""))
 	}
 	fmt.Println("Job count:", len(jobs))
