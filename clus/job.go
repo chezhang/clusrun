@@ -134,13 +134,13 @@ func CancelJobs(headnode string, job_ids map[int32]bool) {
 	if len(result) == 0 {
 		fmt.Println("No job is cancelled.")
 	} else {
-		ids := make([]int32, 0, len(result))
-		for id := range result {
-			ids = append(ids, id)
+		states := map[pb.JobState][]int32{}
+		for id, state := range result {
+			states[state] = append(states[state], id)
 		}
-		sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-		for _, id := range ids {
-			fmt.Printf("Job %v is %v\n", id, result[id])
+		for state, ids := range states {
+			sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
+			fmt.Printf("%v job(s): %v\n", state, ids)
 		}
 	}
 }
