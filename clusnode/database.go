@@ -76,7 +76,7 @@ func InitDatabase() {
 	}
 }
 
-func CreateNewJob(command string, serial string, nodes []string) (int, error) {
+func CreateNewJob(command string, sweep string, nodes []string) (int, error) {
 	// Add new job in job list
 	db_jobsLock.Lock()
 	defer db_jobsLock.Unlock()
@@ -101,8 +101,8 @@ func CreateNewJob(command string, serial string, nodes []string) (int, error) {
 		State:      pb.JobState_Created,
 		Nodes:      nodes,
 	}
-	if len(serial) > 0 {
-		new_job.Serial = serial
+	if len(sweep) > 0 {
+		new_job.Sweep = sweep
 	}
 	jobs = append(jobs, new_job)
 	if err := saveJobs(jobs); err != nil {

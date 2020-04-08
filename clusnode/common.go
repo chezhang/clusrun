@@ -9,6 +9,8 @@ import (
 )
 
 const (
+	Max_Int     = int(^uint(0) >> 1)
+	Min_Int     = -Max_Int - 1
 	DefaultPort = "50505"
 )
 

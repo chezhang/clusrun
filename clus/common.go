@@ -7,6 +7,8 @@ import (
 )
 
 const (
+	Max_Int           = int(^uint(0) >> 1)
+	Min_Int           = -Max_Int - 1
 	DefaultPort       = "50505"
 	LocalHost         = "localhost:" + DefaultPort
 	ConnectTimeout    = 30 * time.Second
@@ -42,8 +44,7 @@ func GetPaddingLine(heading string) string {
 }
 
 func MaxInt(array ...int) int {
-	const minInt = -int(^uint(0)>>1) - 1
-	max := minInt
+	max := Min_Int
 	for _, i := range array {
 		if i > max {
 			max = i

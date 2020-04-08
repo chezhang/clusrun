@@ -26,7 +26,7 @@ func Run(args []string) {
 	pattern := fs.String("pattern", "", "specify nodes matching a certain regular expression pattern to run the command")
 	cache := fs.Int("cache", 1000, "specify the number of characters to cache and display for output of command on each node")
 	prompt := fs.Int("prompt", 1, "specify the number of nodes, the output of which will be displayed promptly")
-	serial := fs.String("serial", "", "replace specified string in the command on each node to a serial number starting from 0")
+	sweep := fs.String("sweep", "", `perform parametric sweep by replacing specified placeholder string in the command on each node to sequence number (in specified range and step optionally) with format "placeholder[{begin[-end][,step]}]"`)
 	background := fs.Bool("background", false, "run command without printing output")
 	// pick := fs.Int("pick", 0, "pick certain number of nodes to run, default 0 means pick all nodes")
 	// merge := fs.Bool("merge", false, "specify if merge outputs with the same content for different nodes")
@@ -45,7 +45,7 @@ func Run(args []string) {
 	if *dump {
 		output_dir = CreateOutputDir()
 	}
-	RunJob(ParseHeadnode(*headnode), command, *serial, output_dir, *pattern, ParseNodes(*nodes), *cache, *prompt, *background)
+	RunJob(ParseHeadnode(*headnode), command, *sweep, output_dir, *pattern, ParseNodes(*nodes), *cache, *prompt, *background)
 }
 
 func DisplayRunUsage(fs *flag.FlagSet) {
@@ -91,7 +91,7 @@ func CreateOutputDir() string {
 	return output_dir
 }
 
-func RunJob(headnode, command, serial, output_dir, pattern string, nodes []string, cache_size, prompt int, background bool) {
+func RunJob(headnode, command, sweep, output_dir, pattern string, nodes []string, cache_size, prompt int, background bool) {
 	dump := len(output_dir) > 0
 
 	// Setup connection
@@ -113,7 +113,7 @@ func RunJob(headnode, command, serial, output_dir, pattern string, nodes []strin
 	// 3. set ctx = context.WithTimeout(context.Background(), 10 * time.Second): out.Send() on headnode get error code = Canceled
 
 	// Start job
-	stream, err := c.StartClusJob(ctx, &pb.StartClusJobRequest{Command: command, Serial: serial, Pattern: pattern, Nodes: nodes})
+	stream, err := c.StartClusJob(ctx, &pb.StartClusJobRequest{Command: command, Sweep: sweep, Pattern: pattern, Nodes: nodes})
 	if err != nil {
 		fmt.Println("Failed to start job:", err)
 		return
@@ -136,6 +136,9 @@ func RunJob(headnode, command, serial, output_dir, pattern string, nodes []strin
 		}
 		if !background {
 			fmt.Println()
+			if len(sweep) > 0 {
+				fmt.Println("Sweep parameter:", sweep)
+			}
 			fmt.Println(GetPaddingLine("---Command---"))
 			fmt.Println(command)
 			fmt.Println(GetPaddingLine(""))

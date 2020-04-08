@@ -51,7 +51,7 @@ func Job(args []string) {
 		} else {
 			job := jobs[0]
 			fmt.Printf("Rerun job %v: ", job.Id)
-			RunJob(ParseHeadnode(*headnode), job.Command, job.Serial, "", "", job.Nodes, 0, 0, true)
+			RunJob(ParseHeadnode(*headnode), job.Command, job.Sweep, "", "", job.Nodes, 0, 0, true)
 		}
 		return
 	}
@@ -230,10 +230,10 @@ func JobPrintTable(jobs []*pb.Job) {
 }
 
 func JobPrintList(jobs []*pb.Job) {
-	item_id, item_state, item_nodes, item_createTime, item_endTime, item_serial, item_failedNodes, item_cancelFailedNodes, item_command :=
-		"Id", "State", "Nodes", "Create Time", "End Time", "Serial Placeholder", "Failed Nodes", "Cancel Failed Nodes", "Command"
+	item_id, item_state, item_nodes, item_createTime, item_endTime, item_failedNodes, item_cancelFailedNodes, item_sweep, item_command :=
+		"Id", "State", "Nodes", "Create Time", "End Time", "Failed Nodes", "Cancel Failed Nodes", "Sweep Parameter", "Command"
 	maxLength := MaxInt(len(item_id), len(item_state), len(item_nodes), len(item_createTime), len(item_endTime),
-		len(item_serial), len(item_failedNodes), len(item_cancelFailedNodes), len(item_command))
+		len(item_sweep), len(item_failedNodes), len(item_cancelFailedNodes), len(item_command))
 	print := func(name string, value interface{}) {
 		fmt.Printf("%-*v : %v\n", maxLength, name, value)
 	}
@@ -244,9 +244,6 @@ func JobPrintList(jobs []*pb.Job) {
 		print(item_createTime, time.Unix(job.CreateTime, 0))
 		if endTime := job.EndTime; endTime > 0 {
 			print(item_endTime, time.Unix(endTime, 0))
-		}
-		if serial := job.Serial; len(serial) > 0 {
-			print(item_serial, serial)
 		}
 		if failedNodes := job.FailedNodes; len(failedNodes) > 0 {
 			nodes := make([]string, 0, len(failedNodes))
@@ -263,6 +260,9 @@ func JobPrintList(jobs []*pb.Job) {
 		}
 		if cancelFailedNodes := job.CancelFailedNodes; len(cancelFailedNodes) > 0 {
 			print(item_cancelFailedNodes, strings.Join(cancelFailedNodes, ", "))
+		}
+		if sweep := job.Sweep; len(sweep) > 0 {
+			print(item_sweep, sweep)
 		}
 		print(item_command, job.Command)
 		fmt.Println(GetPaddingLine(""))

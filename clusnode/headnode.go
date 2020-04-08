@@ -116,7 +116,7 @@ func (s *headnode_server) GetJobs(ctx context.Context, in *pb.GetJobsRequest) (*
 
 func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headnode_StartClusJobServer) error {
 	defer LogPanicBeforeExit()
-	command, nodes, pattern, serial := in.GetCommand(), in.GetNodes(), in.GetPattern(), in.GetSerial()
+	command, nodes, pattern, sweep := in.GetCommand(), in.GetNodes(), in.GetPattern(), in.GetSweep()
 	LogInfo("Creating new job with command: %v", command)
 
 	// Get nodes
@@ -133,8 +133,16 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 		return errors.New(message)
 	}
 
+	// Parse sweep
+	placeholder, sweepSequence := parseSweep(sweep, len(nodes))
+	if !strings.Contains(command, placeholder) {
+		msg := fmt.Sprintf("Sweep placeholder %v has wrong format or is not in command: %v", placeholder, command)
+		LogWarning(msg)
+		return errors.New(msg)
+	}
+
 	// Create job
-	id, err := CreateNewJob(command, serial, nodes)
+	id, err := CreateNewJob(command, sweep, nodes)
 	if err != nil {
 		LogError("Failed to create job: %v", err)
 		return err
@@ -151,8 +159,8 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	for i, node := range nodes {
 		wg.Add(1)
 		c := command
-		if len(serial) > 0 {
-			c = strings.ReplaceAll(command, serial, strconv.Itoa(i))
+		if len(sweep) > 0 {
+			c = strings.ReplaceAll(command, placeholder, strconv.Itoa(sweepSequence[i]))
 		}
 		go StartJobOnNode(id, c, node, &job_on_nodes, out, &wg, Config_Headnode_StoreOutput.GetBool())
 	}
@@ -433,4 +441,134 @@ func CancelJobOnNode(id int32, node string, wg *sync.WaitGroup, result *sync.Map
 
 func HeartbeatTimeout(last_report time.Time) bool {
 	return time.Since(last_report) > time.Duration(Config_Headnode_HeartbeatTimeoutSecond.GetInt())*time.Second
+}
+
+// Valid format: placeholder[{[-]begin[-[-]end][,[-]step]}]
+func parseSweep(sweep string, count int) (placeholder string, sequence []int) {
+	placeholder = sweep
+	sequence = make([]int, count)
+	for i := range sequence {
+		sequence[i] = i
+	}
+	begin, end, step := 0, Max_Int, 0
+	if length := len(sweep); length == 0 {
+		return
+	} else if sweep[length-1:] != "}" {
+		return
+	}
+	if index := strings.LastIndex(sweep, "{"); index < 0 {
+		return
+	} else if len(sweep[0:index]) == 0 {
+		return
+	} else if parts := strings.Split(sweep[index+1:len(sweep)-1], ","); len(parts) > 2 {
+		return
+	} else {
+		if len(parts) == 2 {
+			// Format: placeholder{begin[-end],step}
+			if s, err := strconv.Atoi(parts[1]); err != nil {
+				return
+			} else if s == 0 {
+				return
+			} else {
+				step = s
+				if step < 0 {
+					end = Min_Int
+				}
+			}
+		}
+		parts := strings.Split(parts[0], "-")
+		if len(parts) == 1 {
+			// Format: placeholder{begin[,step]}
+			if b, err := strconv.Atoi(parts[0]); err != nil {
+				return
+			} else {
+				begin = b
+			}
+		} else if len(parts) == 2 {
+			if len(parts[0]) == 0 {
+				// Format: placeholder{-begin[,step]}
+				if b, err := strconv.Atoi("-" + parts[1]); err != nil {
+					return
+				} else {
+					begin = b
+				}
+			} else {
+				// Format: placeholder{begin-end[,step]}
+				if b, err := strconv.Atoi(parts[0]); err != nil {
+					return
+				} else {
+					begin = b
+				}
+				if e, err := strconv.Atoi(parts[1]); err != nil {
+					return
+				} else {
+					end = e
+				}
+			}
+		} else if len(parts) == 3 {
+			if len(parts[0]) == 0 {
+				// Format: placeholder{-begin-end[,step]}
+				if b, err := strconv.Atoi("-" + parts[1]); err != nil {
+					return
+				} else {
+					begin = b
+				}
+				if e, err := strconv.Atoi(parts[2]); err != nil {
+					return
+				} else {
+					end = e
+				}
+			} else if len(parts[1]) == 0 {
+				// Format: placeholder{begin--end[,step]}
+				if b, err := strconv.Atoi(parts[0]); err != nil {
+					return
+				} else {
+					begin = b
+				}
+				if e, err := strconv.Atoi("-" + parts[2]); err != nil {
+					return
+				} else {
+					end = e
+				}
+			} else {
+				return
+			}
+		} else if len(parts) == 4 {
+			// Format: placeholder{-begin--end[,step]}
+			if len(parts[0]) == 0 || len(parts[2]) == 0 {
+				if b, err := strconv.Atoi("-" + parts[1]); err != nil {
+					return
+				} else {
+					begin = b
+				}
+				if e, err := strconv.Atoi("-" + parts[3]); err != nil {
+					return
+				} else {
+					end = e
+				}
+			} else {
+				return
+			}
+		} else {
+			return
+		}
+		placeholder = sweep[0:index]
+	}
+	if step == 0 {
+		if begin < end {
+			step = 1
+		}
+		if begin > end {
+			step = -1
+		}
+	}
+	n := begin
+	for i := range sequence {
+		sequence[i] = n
+		n += step
+		if step > 0 && n > end || step < 0 && n < end {
+			n = begin
+		}
+	}
+	return
 }
