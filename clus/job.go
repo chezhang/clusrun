@@ -3,6 +3,7 @@ package main
 import (
 	pb "../protobuf"
 	"context"
+	"errors"
 	"flag"
 	"fmt"
 	"google.golang.org/grpc"
@@ -29,7 +30,11 @@ func Job(args []string) {
 	// state := fs.String("state", "", "get jobs in certain state")
 	fs.Parse(args)
 	no_job_args := len(fs.Args()) == 0
-	job_ids := ParseJobIds(fs.Args())
+	job_ids, err := parseJobIds(fs.Args())
+	if err != nil {
+		fmt.Println(err)
+		os.Exit(1)
+	}
 	if *cancel {
 		if no_job_args {
 			job_ids[jobId_last] = false
@@ -73,13 +78,22 @@ func Job(args []string) {
 	}
 }
 
-func ParseJobIds(args []string) map[int32]bool {
-	job_ids := map[int32]bool{}
+func parseJobIds(args []string) (job_ids map[int32]bool, err error) {
+	job_ids = map[int32]bool{}
 	for _, arg := range args {
 		for _, id := range strings.Split(arg, ",") {
 			if id == "*" || strings.ToLower(id) == "all" {
 				job_ids[jobId_all] = false
 				continue
+			}
+			if id == "~~" || strings.ToLower(id) == "last" {
+				job_ids[jobId_last] = false
+				continue
+			}
+			inverse := false
+			if len(id) > 0 && id[:1] == "~" {
+				inverse = true
+				id = id[1:]
 			}
 			var begin, end string
 			if strings.Index(id, "-") <= 0 {
@@ -89,24 +103,28 @@ func ParseJobIds(args []string) map[int32]bool {
 				begin = parts[0]
 				end = parts[1]
 			} else {
-				fmt.Printf("Invalid job range: %q\n", id)
-				os.Exit(0)
+				err = errors.New(fmt.Sprintf("Invalid range: %q", id))
+				return
 			}
 			ids := make([]int, 2)
 			for i, val := range []string{begin, end} {
-				if job_id, err := strconv.Atoi(strings.TrimSpace(val)); err != nil || job_id == 0 {
-					fmt.Printf("Invalid job id: %q\n", val)
-					os.Exit(0)
+				if job_id, e := strconv.Atoi(strings.TrimSpace(val)); e != nil || job_id == 0 || inverse && job_id < 0 {
+					err = errors.New(fmt.Sprintf("Invalid id: %q", val))
+					return
 				} else {
 					ids[i] = job_id
 				}
 			}
 			for i := ids[0]; i <= ids[1]; i++ {
-				job_ids[int32(i)] = false
+				id := i
+				if inverse {
+					id = -i
+				}
+				job_ids[int32(id)] = false
 			}
 		}
 	}
-	return job_ids
+	return
 }
 
 func CancelJobs(headnode string, job_ids map[int32]bool) {
