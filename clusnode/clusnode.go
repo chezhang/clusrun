@@ -216,7 +216,7 @@ func cleanupJob(job_label, cmd_file string) {
 }
 
 func getJobLabel(headnode string, job_id int) string {
-	return strings.ReplaceAll(headnode, ":", ".") + "." + strconv.Itoa(job_id)
+	return FileNameFormatHost(headnode) + "." + strconv.Itoa(job_id)
 }
 
 func AddHeadnode(headnode string) (added string, e error) {

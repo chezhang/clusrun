@@ -9,7 +9,6 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -30,7 +29,7 @@ var (
 func InitDatabase() {
 	LogInfo("Initializing database")
 	default_db_dir := ExecutablePath + ".db"
-	headnode := filepath.Join(default_db_dir, strings.ReplaceAll(NodeHost, ":", "."))
+	headnode := filepath.Join(default_db_dir, FileNameFormatHost(NodeHost))
 	db_outputDir = headnode + ".output"
 	db_cmdDir = headnode + ".command" // This directory is for clusnode not headnode, can be moved to other place when necessary
 	db_jobs = headnode + ".jobs"
@@ -339,7 +338,7 @@ func getOutputDir(id int) string {
 }
 
 func GetOutputFile(id int, node string) (string, string) {
-	file := filepath.Join(getOutputDir(id), strings.ReplaceAll(node, ":", "."))
+	file := filepath.Join(getOutputDir(id), FileNameFormatHost(node))
 	return file + ".out", file + ".err"
 }
 

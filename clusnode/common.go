@@ -50,6 +50,10 @@ func ParseHostAddress(address string) (hostname, port, host string, err error) {
 	return
 }
 
+func FileNameFormatHost(host string) string {
+	return strings.ReplaceAll(host, ":", ".")
+}
+
 func LogPanicBeforeExit() {
 	if panic := recover(); panic != nil {
 		message := fmt.Sprintf("%v\n%v", panic, string(debug.Stack()))

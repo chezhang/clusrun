@@ -51,6 +51,13 @@ The commands are:
 	start           - start the node
 	config          - configure the started node
 
+Usage of start:
+	clusnode start [options]
+	clusnode start -h
+
+Usage of config:
+	clusnode config <command> [configs]
+	clusnode config -h
 `)
 }
 
@@ -73,9 +80,8 @@ func initGlobalVars() {
 func start(args []string) {
 	fs := flag.NewFlagSet("clusnode start options", flag.ExitOnError)
 	default_config_file := ExecutablePath + ".config"
-	default_log_dir := ExecutablePath + ".log"
-	default_log_file_label := filepath.Join(default_log_dir, "<start time>.log")
-	default_log_file := filepath.Join(default_log_dir, time.Now().Format("20060102150405.log"))
+	default_log_dir := ExecutablePath + ".logs"
+	default_log_file_label := filepath.Join(default_log_dir, "<host>.<start time>.log")
 	config_file := fs.String("config-file", default_config_file, "specify the config file for saving and loading settings")
 	headnodes := fs.String("headnodes", "", "specify the host addresses of headnodes for this clusnode to join in")
 	host := fs.String("host", localHost, "specify the host address of this headnode and clusnode")
@@ -83,12 +89,20 @@ func start(args []string) {
 	pprof := fs.Bool("pprof", false, fmt.Sprintf("start HTTP server on %v for pprof", pprofServer))
 	fs.Parse(args)
 
+	// Setup the host address of this node
+	var err error
+	if _, _, NodeHost, err = ParseHostAddress(*host); err != nil {
+		fmt.Printf("Failed to parse node host address: %v\n", err)
+		os.Exit(1)
+	}
+
 	// Setup log file
 	if *log_file == default_log_file_label {
 		if err := os.MkdirAll(default_log_dir, 0644); err != nil {
 			LogFatality("Failed to create log dir: %v", err)
 		}
-		*log_file = default_log_file
+		file_name := fmt.Sprintf("%v.%v", FileNameFormatHost(NodeHost), time.Now().Format("20060102150405.log"))
+		*log_file = filepath.Join(default_log_dir, file_name)
 	}
 	f, err := os.OpenFile(*log_file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
@@ -109,12 +123,6 @@ func start(args []string) {
 				LogError("Failed to start pprof HTTP server")
 			}
 		}()
-	}
-
-	// Setup the host address of this node
-	_, _, NodeHost, err = ParseHostAddress(*host)
-	if err != nil {
-		LogFatality("Failed to parse node host address: %v", err)
 	}
 
 	// Setup config file

@@ -6,7 +6,7 @@ rm -f /etc/systemd/system/clusrun.service
 dir=$(dirname "$0")
 
 if [ "${1,,}" == "-cleanup" ]; then
-    rm -rf "$dir/clusnode.db" "$dir/clusnode.log"
+    rm -rf "$dir/clusnode.db" "$dir/clusnode.logs"
     rm -f "$dir/clusnode.config"
 fi
 
