@@ -16,7 +16,7 @@ import (
 const (
 	Config_Clusnode                = "clusnode role"
 	Config_Headnode                = "headnode role"
-	Config_Clusnode_Headnodes_Name = "headnodes to report"
+	Config_Clusnode_Headnodes_Name = "headnodes"
 )
 
 var (
@@ -241,10 +241,10 @@ func GetNodeConfigs(role string) map[string]string {
 		configs_role = configs_clusnode
 		connected, connecting := GetHeadnodes()
 		if len(connected) > 0 {
-			configs[Config_Clusnode_Headnodes_Name+" (connected)"] = strings.Join(connected, ", ")
+			configs["(connected) "+Config_Clusnode_Headnodes_Name] = strings.Join(connected, ", ")
 		}
 		if len(connecting) > 0 {
-			configs[Config_Clusnode_Headnodes_Name+" (connecting)"] = strings.Join(connecting, ", ")
+			configs["(connecting) "+Config_Clusnode_Headnodes_Name] = strings.Join(connecting, ", ")
 		}
 	} else if role == Config_Headnode {
 		configs_role = configs_headnode
