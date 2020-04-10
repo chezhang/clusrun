@@ -19,10 +19,12 @@ const (
 )
 
 var (
-	db_outputDir string
-	db_cmdDir    string
-	db_jobs      string
-	db_jobsLock  sync.Mutex
+	db_outputDir      string
+	db_cmdDir         string
+	db_jobs           string
+	db_jobsLock       sync.Mutex
+	db_nodeGroups     string
+	db_nodeGroupsLock sync.Mutex
 )
 
 func InitDatabase() {
@@ -32,6 +34,7 @@ func InitDatabase() {
 	db_outputDir = headnode + ".output"
 	db_cmdDir = headnode + ".command" // This directory is for clusnode not headnode, can be moved to other place when necessary
 	db_jobs = headnode + ".jobs"
+	db_nodeGroups = headnode + ".groups"
 	if err := os.MkdirAll(db_outputDir, 0644); err != nil {
 		LogFatality("Failed to create output dir: %v", err)
 	}
@@ -73,6 +76,13 @@ func InitDatabase() {
 				cleanupOutputDir(id)
 			}
 		}
+	}
+	if _, err := os.Stat(db_nodeGroups); os.IsNotExist(err) {
+		if err = ioutil.WriteFile(db_nodeGroups, []byte("{}"), 0644); err != nil {
+			LogFatality("Failed to create database groups file: %v", err)
+		}
+	} else if err := loadNodeGroups(); err != nil {
+		LogFatality("Failed to load node groups: %v", err)
 	}
 }
 
@@ -347,4 +357,49 @@ func NormalizeJobIds(job_ids map[int32]bool, jobs []pb.Job) map[int32]bool {
 		}
 	}
 	return positive_job_ids
+}
+
+func SaveNodeGroups() error {
+	db_nodeGroupsLock.Lock()
+	defer db_nodeGroupsLock.Unlock()
+	groups := map[string][]string{}
+	NodeGroups.Range(func(k, v interface{}) bool {
+		group := k.(string)
+		nodes := v.(*sync.Map)
+		var n []string
+		nodes.Range(func(k, v interface{}) bool {
+			node := k.(string)
+			n = append(n, node)
+			return true
+		})
+		groups[group] = n
+		return true
+	})
+	if json_string, err := json.MarshalIndent(groups, "", "    "); err != nil {
+		return err
+	} else if err := ioutil.WriteFile(db_nodeGroups, json_string, 0644); err != nil {
+		return err
+	}
+	return nil
+}
+
+func loadNodeGroups() error {
+	db_nodeGroupsLock.Lock()
+	defer db_nodeGroupsLock.Unlock()
+	json_string, err := ioutil.ReadFile(db_nodeGroups)
+	if err != nil {
+		return err
+	}
+	var nodeGroups map[string][]string
+	if err = json.Unmarshal(json_string, &nodeGroups); err != nil {
+		return err
+	}
+	for k, v := range nodeGroups {
+		nodes := sync.Map{}
+		for _, node := range v {
+			nodes.Store(node, false)
+		}
+		NodeGroups.Store(k, &nodes)
+	}
+	return nil
 }

@@ -124,7 +124,7 @@ func start(args []string) {
 
 	// Setup headnodes
 	if *headnodes != "" {
-		LogInfo("Adding headnode(s): %v", *headnodes)
+		LogInfo("Adding headnodes: %v", *headnodes)
 		for _, headnode := range strings.Split(*headnodes, ",") {
 			if _, _, _, err := ParseHostAddress(headnode); err != nil {
 				LogFatality("Failed to parse headnode host address: %v", err)

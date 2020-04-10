@@ -22,6 +22,8 @@ var (
 	// TODO: use a sync.Map from node to id and 2 arrays instead, only lock when appending
 	reportedTime   sync.Map
 	validateNumber sync.Map
+	NodeGroups     sync.Map
+	// TODO: Jobs  sync.Map
 )
 
 type jobOnNode struct {
@@ -36,7 +38,8 @@ type headnode_server struct {
 func (s *headnode_server) Heartbeat(ctx context.Context, in *pb.HeartbeatRequest) (*pb.Empty, error) {
 	defer LogPanicBeforeExit()
 	nodename, host := in.GetNodename(), in.GetHost()
-	if strings.ContainsAny(nodename, "()") { // TODO: support nodename containing "(" or ")" by using a map of host -> display name, display name -> host should also be considered when parsing node from request input
+	if strings.ContainsAny(nodename, "()") {
+		// TODO: support nodename containing "(" or ")" when necessary by using other format like nodename@host as the node id
 		LogError("Invalid nodename in heartbeat: %v", nodename)
 		return &pb.Empty{}, errors.New("Invalid nodename: " + nodename)
 	}
@@ -54,27 +57,31 @@ func (s *headnode_server) Heartbeat(ctx context.Context, in *pb.HeartbeatRequest
 	}
 	if last_report, ok := reportedTime.Load(display_name); !ok {
 		LogInfo("First heartbeat from %v", display_name)
-	} else if HeartbeatTimeout(last_report.(time.Time)) {
+	} else if heartbeatTimeout(last_report.(time.Time)) {
 		LogInfo("%v reconnected. Last report time: %v", display_name, last_report)
 		validateNumber.Delete(display_name)
 	}
 	reportedTime.Store(display_name, time.Now())
-	go Validate(display_name, nodename, host)
+	go validate(display_name, nodename, host)
 	return &pb.Empty{}, nil
 }
 
 func (s *headnode_server) GetNodes(ctx context.Context, in *pb.GetNodesRequest) (*pb.GetNodesReply, error) {
 	defer LogPanicBeforeExit()
-	pattern, state, _ := in.GetPattern(), in.GetState(), in.GetGroups()
-	nodes := []*pb.GetNodesReply_Node{}
+	pattern, state, groups, intersect := in.GetPattern(), in.GetState(), in.GetGroups(), in.GetGroupsIntersect()
+	candidates := getNodesInGroups(groups, intersect)
+	nodes := []*pb.Node{}
 	reportedTime.Range(func(key interface{}, val interface{}) bool {
 		nodename := key.(string)
+		if _, ok := candidates[nodename]; len(groups) > 0 && !ok {
+			return true
+		}
 		if matched, _ := regexp.MatchString(pattern, nodename); !matched {
 			return true
 		}
 		last_report := val.(time.Time)
-		node := pb.GetNodesReply_Node{Name: nodename}
-		if HeartbeatTimeout(last_report) {
+		node := pb.Node{Name: nodename}
+		if heartbeatTimeout(last_report) {
 			node.State = pb.NodeState_Lost
 		} else {
 			if number, ok := validateNumber.Load(nodename); ok && number.(int) < 0 {
@@ -88,6 +95,19 @@ func (s *headnode_server) GetNodes(ctx context.Context, in *pb.GetNodesRequest) 
 		}
 		return true
 	})
+	NodeGroups.Range(func(k, v interface{}) bool {
+		group := k.(string)
+		n := v.(*sync.Map)
+		for _, node := range nodes {
+			if _, ok := n.Load(node.Name); ok {
+				node.Groups = append(node.Groups, group)
+			}
+		}
+		return true
+	})
+	for _, node := range nodes {
+		sort.Strings(node.Groups)
+	}
 	LogInfo("GetNodes result: %v", nodes)
 	return &pb.GetNodesReply{Nodes: nodes}, nil
 }
@@ -116,11 +136,12 @@ func (s *headnode_server) GetJobs(ctx context.Context, in *pb.GetJobsRequest) (*
 
 func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headnode_StartClusJobServer) error {
 	defer LogPanicBeforeExit()
-	command, nodes, pattern, sweep := in.GetCommand(), in.GetNodes(), in.GetPattern(), in.GetSweep()
+	command, nodes, pattern, groups, intersect, sweep :=
+		in.GetCommand(), in.GetNodes(), in.GetPattern(), in.GetGroups(), in.GetGroupsIntersect(), in.GetSweep()
 	LogInfo("Creating new job with command: %v", command)
 
 	// Get nodes
-	nodes, invalid_nodes := GetValidNodes(nodes, pattern)
+	nodes, invalid_nodes := getValidNodes(nodes, pattern, groups, intersect)
 	sort.Strings(nodes)
 	sort.Strings(invalid_nodes)
 	if len(invalid_nodes) > 0 {
@@ -162,7 +183,7 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 		if len(sweep) > 0 {
 			c = strings.ReplaceAll(command, placeholder, strconv.Itoa(sweepSequence[i]))
 		}
-		go StartJobOnNode(id, c, node, &job_on_nodes, out, &wg, Config_Headnode_StoreOutput.GetBool())
+		go startJobOnNode(id, c, node, &job_on_nodes, out, &wg, Config_Headnode_StoreOutput.GetBool())
 	}
 	UpdateJobState(id, pb.JobState_Dispatching, pb.JobState_Running)
 	wg.Wait()
@@ -194,7 +215,7 @@ func (s *headnode_server) CancelClusJobs(ctx context.Context, in *pb.CancelClusJ
 		return nil, err
 	}
 	for id, nodes := range to_cancel {
-		go CancelJob(id, nodes)
+		go cancelJob(id, nodes)
 	}
 	LogInfo("CancelClusJobs result: %v", result)
 	return &pb.CancelClusJobsReply{Result: result}, nil
@@ -213,7 +234,93 @@ func (s *headnode_server) GetConfigs(ctx context.Context, in *pb.Empty) (*pb.Get
 	return &pb.GetConfigsReply{Configs: results}, nil
 }
 
-func Validate(display_name, nodename, host string) {
+func (s *headnode_server) SetNodeGroups(ctx context.Context, in *pb.SetNodeGroupsRequest) (*pb.Empty, error) {
+	defer LogPanicBeforeExit()
+	groups, nodes, remove := in.GetGroups(), in.GetNodes(), in.GetRemove()
+	all := false
+	if remove {
+		for _, group := range groups {
+			if group == "*" {
+				all = true
+				break
+			}
+		}
+	}
+	if all {
+		NodeGroups.Range(func(k, v interface{}) bool {
+			for _, node := range nodes {
+				v.(*sync.Map).Delete(node.Name)
+			}
+			return true
+		})
+	} else {
+		for _, group := range groups {
+			n, _ := NodeGroups.LoadOrStore(group, &sync.Map{})
+			nn := n.(*sync.Map)
+			for _, node := range nodes {
+				if remove {
+					nn.Delete(node.Name)
+				} else {
+					nn.Store(node.Name, false)
+				}
+			}
+		}
+	}
+	if err := SaveNodeGroups(); err != nil {
+		LogError("Failed to save node groups: %v", err)
+		return &pb.Empty{}, err
+	}
+	g := fmt.Sprintf("Node groups %v", groups)
+	if all {
+		g = "All node groups"
+	}
+	v := "added"
+	if remove {
+		v = "removed"
+	}
+	LogInfo("%v %v nodes: %v", g, v, nodes)
+	return &pb.Empty{}, nil
+}
+
+func getNodesInGroups(groups []string, intersect bool) map[string]bool {
+	candidates := map[string]bool{}
+	if intersect {
+		if len(groups) > 0 {
+			firstGroup := groups[0]
+			if nodes, ok := NodeGroups.Load(firstGroup); ok {
+				nodes.(*sync.Map).Range(func(k, v interface{}) bool {
+					candidates[k.(string)] = false
+					return true
+				})
+			}
+			for _, group := range groups[1:] {
+				new := map[string]bool{}
+				if nodes, ok := NodeGroups.Load(group); ok {
+					nodes.(*sync.Map).Range(func(k, v interface{}) bool {
+						node := k.(string)
+						if _, ok := candidates[node]; ok {
+							new[node] = false
+						}
+						return true
+					})
+				}
+				candidates = new
+			}
+		}
+	} else {
+		for _, group := range groups {
+			if nodes, ok := NodeGroups.Load(group); ok {
+				nodes.(*sync.Map).Range(func(k, v interface{}) bool {
+					candidates[k.(string)] = false
+					return true
+				})
+			}
+		}
+	}
+	return candidates
+}
+
+func validate(display_name, nodename, host string) {
 	if number, ok := validateNumber.LoadOrStore(display_name, 0); !ok || number.(int) > 0 {
 		number := number.(int)
 		if ok { // validate immediately in the first time, otherwise double validating interval after every failure
@@ -253,18 +360,22 @@ func Validate(display_name, nodename, host string) {
 	}
 }
 
-func GetValidNodes(nodes []string, pattern string) ([]string, []string) {
+func getValidNodes(nodes []string, pattern string, groups []string, intersect bool) ([]string, []string) {
+	candidates := getNodesInGroups(groups, intersect)
 	ready_nodes := map[string]string{}
 	valid_nodes := []string{}
 	reportedTime.Range(func(key interface{}, val interface{}) bool {
 		node := key.(string)
 		last_report := val.(time.Time)
-		if number, ok := validateNumber.Load(node); ok && number.(int) < 0 && !HeartbeatTimeout(last_report) {
+		if number, ok := validateNumber.Load(node); ok && number.(int) < 0 && !heartbeatTimeout(last_report) {
+			if _, ok := candidates[node]; len(groups) > 0 && !ok {
+				return true
+			}
 			if matched, _ := regexp.MatchString(pattern, node); !matched {
 				return true
 			}
 			ready_nodes[node] = node
-			ready_nodes[ParseHost(node)] = node
+			ready_nodes[parseHost(node)] = node
 			valid_nodes = append(valid_nodes, node)
 		}
 		return true
@@ -287,7 +398,7 @@ func GetValidNodes(nodes []string, pattern string) ([]string, []string) {
 	return valid_nodes, invalid_nodes
 }
 
-func ParseHost(display_name string) string {
+func parseHost(display_name string) string {
 	segs := strings.Split(display_name, "(")
 	if len(segs) <= 1 {
 		return display_name + ":" + DefaultPort
@@ -296,7 +407,7 @@ func ParseHost(display_name string) string {
 	}
 }
 
-func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb.Headnode_StartClusJobServer, wg *sync.WaitGroup, save_output bool) {
+func startJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb.Headnode_StartClusJobServer, wg *sync.WaitGroup, save_output bool) {
 	defer wg.Done()
 	LogInfo("Start job %v on node %v", id, node)
 
@@ -319,7 +430,7 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 
 	// Setup connection
 	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
-	conn, err := grpc.DialContext(ctx, ParseHost(node), grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.DialContext(ctx, parseHost(node), grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		LogError("Can not connect node %v in %v: %v", node, ConnectTimeout, err)
 		return
@@ -396,13 +507,13 @@ func StartJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 	}
 }
 
-func CancelJob(id int32, nodes []string) {
+func cancelJob(id int32, nodes []string) {
 	wg := sync.WaitGroup{}
 	result := sync.Map{}
 	for i := range nodes {
 		wg.Add(1)
 		result.Store(nodes[i], false)
-		go CancelJobOnNode(id, nodes[i], &wg, &result)
+		go cancelJobOnNode(id, nodes[i], &wg, &result)
 	}
 	wg.Wait()
 	var cancel_failed_nodes []string
@@ -415,12 +526,12 @@ func CancelJob(id int32, nodes []string) {
 	UpdateCancelledJob(id, cancel_failed_nodes)
 }
 
-func CancelJobOnNode(id int32, node string, wg *sync.WaitGroup, result *sync.Map) {
+func cancelJobOnNode(id int32, node string, wg *sync.WaitGroup, result *sync.Map) {
 	defer wg.Done()
 
 	// Setup connection
 	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
-	conn, err := grpc.DialContext(ctx, ParseHost(node), grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := grpc.DialContext(ctx, parseHost(node), grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		LogError("Can not connect node %v in %v: %v", node, ConnectTimeout, err)
 		return
@@ -439,7 +550,7 @@ func CancelJobOnNode(id int32, node string, wg *sync.WaitGroup, result *sync.Map
 	}
 }
 
-func HeartbeatTimeout(last_report time.Time) bool {
+func heartbeatTimeout(last_report time.Time) bool {
 	return time.Since(last_report) > time.Duration(Config_Headnode_HeartbeatTimeoutSecond.GetInt())*time.Second
 }
 

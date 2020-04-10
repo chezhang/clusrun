@@ -25,6 +25,7 @@ service Headnode {
   rpc CancelClusJobs (CancelClusJobsRequest) returns (CancelClusJobsReply) {}
   rpc SetConfigs (SetConfigsRequest) returns (SetConfigsReply) {}
   rpc GetConfigs (Empty) returns (GetConfigsReply) {}
+  rpc SetNodeGroups (SetNodeGroupsRequest) returns (Empty) {}
 }
 
 service Clusnode {
@@ -54,16 +55,18 @@ enum NodeState {
 message GetNodesRequest {
   string pattern = 1;
   repeated string groups = 2;
-  NodeState state = 3;
+  bool groups_intersect = 3;
+  NodeState state = 4;
+}
+
+message Node {
+  string name = 1;
+  NodeState state = 2;
+  repeated int32 jobs = 3;
+  repeated string groups = 4;
 }
 
 message GetNodesReply {
-  message Node {
-    string name = 1;
-    NodeState state = 2;
-    repeated int32 jobs = 3;
-    repeated string groups = 4;
-  }
   repeated Node nodes = 1;
 }
 
@@ -113,8 +116,9 @@ message StartClusJobRequest {
   string command = 1;
   repeated string nodes = 2;
   string pattern = 3;
-  string group = 4;
-  string sweep = 5;
+  repeated string groups = 4;
+  bool groups_intersect = 5;
+  string sweep = 6;
 }
 
 message StartClusJobReply {
@@ -159,6 +163,12 @@ message ValidateRequest {
 
 message ValidateReply {
   string nodename = 1;
+}
+
+message SetNodeGroupsRequest {
+  repeated string groups = 1;
+  repeated Node nodes = 2;
+  bool remove = 3;
 }
 
 enum SetHeadnodesMode {

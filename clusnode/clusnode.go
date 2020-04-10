@@ -46,7 +46,7 @@ func (s *clusnode_server) SetHeadnodes(ctx context.Context, in *pb.SetHeadnodesR
 	results := make(map[string]string)
 	if mode == pb.SetHeadnodesMode_Remove {
 		for _, headnode := range headnodes {
-			if headnode, err := RemoveHeadnode(headnode); err != nil {
+			if headnode, err := removeHeadnode(headnode); err != nil {
 				results[headnode] = err.Error()
 			} else {
 				results[headnode] = "Removed"
@@ -65,7 +65,7 @@ func (s *clusnode_server) SetHeadnodes(ctx context.Context, in *pb.SetHeadnodesR
 				if state := val.(*heartbeat_state); !state.Stopped {
 					node := key.(string)
 					if _, ok := results[node]; !ok {
-						if headnode, err := RemoveHeadnode(node); err != nil {
+						if headnode, err := removeHeadnode(node); err != nil {
 							results[headnode] = err.Error()
 						} else {
 							results[headnode] = "Removed"
@@ -85,7 +85,7 @@ func (s *clusnode_server) StartJob(in *pb.StartJobRequest, out pb.Clusnode_Start
 	defer LogPanicBeforeExit()
 	headnode, job_id, command := in.GetHeadnode(), in.GetJobId(), in.GetCommand()
 	LogInfo("Receive StartJob from headnode %v to start job %v with command: %v", headnode, job_id, command)
-	job_label := GetJobLabel(headnode, int(job_id))
+	job_label := getJobLabel(headnode, int(job_id))
 
 	// Create command file
 	cmd_file, err := CreateCommandFile(job_label, command)
@@ -94,7 +94,7 @@ func (s *clusnode_server) StartJob(in *pb.StartJobRequest, out pb.Clusnode_Start
 		LogError(message+" for job %v", job_label)
 		return errors.New(message)
 	}
-	defer CleanupJob(job_label, cmd_file)
+	defer cleanupJob(job_label, cmd_file)
 
 	// Run command
 	start_point := "/bin/bash"
@@ -177,7 +177,7 @@ func (s *clusnode_server) CancelJob(ctx context.Context, in *pb.CancelJobRequest
 	defer LogPanicBeforeExit()
 	headnode, job_id := in.GetHeadnode(), in.GetJobId()
 	LogInfo("Receive CancelJob from headnode %v to cancel job %v", headnode, job_id)
-	job_label := GetJobLabel(headnode, int(job_id))
+	job_label := getJobLabel(headnode, int(job_id))
 	if pid, ok := jobsPid.Load(job_label); ok {
 		pid := pid.(int)
 		if RunOnWindows {
@@ -208,14 +208,14 @@ func (s *clusnode_server) GetConfigs(ctx context.Context, in *pb.Empty) (*pb.Get
 	return &pb.GetConfigsReply{Configs: results}, nil
 }
 
-func CleanupJob(job_label, cmd_file string) {
+func cleanupJob(job_label, cmd_file string) {
 	jobsPid.Delete(job_label)
 	if err := os.Remove(cmd_file); err != nil {
 		LogError("Failed to cleanup job %v: %v", job_label, err)
 	}
 }
 
-func GetJobLabel(headnode string, job_id int) string {
+func getJobLabel(headnode string, job_id int) string {
 	return strings.ReplaceAll(headnode, ":", ".") + "." + strconv.Itoa(job_id)
 }
 
@@ -239,13 +239,13 @@ func AddHeadnode(headnode string) (added string, e error) {
 			return
 		}
 	} else {
-		go Heartbeat(NodeHost, headnode)
+		go heartbeat(NodeHost, headnode)
 	}
 	added = headnode
 	return
 }
 
-func RemoveHeadnode(headnode string) (removed string, e error) {
+func removeHeadnode(headnode string) (removed string, e error) {
 	_, _, headnode, err := ParseHostAddress(headnode)
 	if err != nil {
 		e = errors.New("Failed to parse headnode host address: " + err.Error())
@@ -280,7 +280,7 @@ func GetHeadnodes() (connected, connecting []string) {
 	return
 }
 
-func Heartbeat(from, headnode string) {
+func heartbeat(from, headnode string) {
 	connected := false
 	stopped := true
 	for {

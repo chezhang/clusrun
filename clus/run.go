@@ -24,6 +24,8 @@ func Run(args []string) {
 	dump := fs.Bool("dump", false, "save the output to file")
 	nodes := fs.String("nodes", "", "specify certain nodes to run the command")
 	pattern := fs.String("pattern", "", "specify nodes matching a certain regular expression pattern to run the command")
+	groups := fs.String("groups", "", "specify certain node groups to run the command")
+	groups_intersect := fs.Bool("intersect", false, "specify to run the command in intersection (union if not specified) of node groups")
 	cache := fs.Int("cache", 1000, "specify the number of characters to cache and display for output of command on each node")
 	prompt := fs.Int("prompt", 1, "specify the number of nodes, the output of which will be displayed promptly")
 	sweep := fs.String("sweep", "", `perform parametric sweep by replacing specified placeholder string in the command on each node to sequence number (in specified range and step optionally) with format "placeholder[{begin[-end][,step]}]"`)
@@ -36,19 +38,19 @@ func Run(args []string) {
 		if len(command) > 0 {
 			fmt.Printf("[Warning] The command '%v' will be overwritten by scirpt %v\n", command, *script)
 		}
-		command = ParseScript(*script)
+		command = parseScript(*script)
 	} else if len(command) <= 0 {
-		DisplayRunUsage(fs)
+		displayRunUsage(fs)
 		return
 	}
 	output_dir := ""
 	if *dump {
-		output_dir = CreateOutputDir()
+		output_dir = createOutputDir()
 	}
-	RunJob(ParseHeadnode(*headnode), command, *sweep, output_dir, *pattern, ParseNodes(*nodes), *cache, *prompt, *background)
+	RunJob(ParseHeadnode(*headnode), command, *sweep, output_dir, *pattern, parseNodesOrGroups(*groups), parseNodesOrGroups(*nodes), *cache, *prompt, *background, *groups_intersect)
 }
 
-func DisplayRunUsage(fs *flag.FlagSet) {
+func displayRunUsage(fs *flag.FlagSet) {
 	fmt.Printf(`
 Usage: 
   clus run [options] <command>
@@ -58,40 +60,39 @@ Options:
 	fs.PrintDefaults()
 }
 
-func ParseScript(script string) string {
+func parseScript(script string) string {
 	command, err := ioutil.ReadFile(script)
 	if err != nil {
 		fmt.Printf("Failed to read commands in script: %v", err)
-		os.Exit(0)
+		os.Exit(1)
 	}
 	return string(command)
 }
 
-func ParseNodes(s string) []string {
-	nodes := []string{}
-	for _, node := range strings.Split(s, ",") {
-		if len(node) > 0 {
-			nodes = append(nodes, node)
+func parseNodesOrGroups(s string) (items []string) {
+	for _, item := range strings.Split(s, ",") {
+		if len(item) > 0 {
+			items = append(items, item)
 		}
 	}
-	return nodes
+	return
 }
 
-func CreateOutputDir() string {
+func createOutputDir() string {
 	cur_dir, err := os.Getwd()
 	if err != nil {
 		fmt.Printf("Failed to get working dir: %v", err)
-		os.Exit(0)
+		os.Exit(1)
 	}
 	output_dir := filepath.Join(cur_dir, "clus.run."+time.Now().Format("20060102150405"))
 	if err := os.MkdirAll(output_dir, 0644); err != nil {
 		fmt.Printf("Failed to create output dir: %v", err)
-		os.Exit(0)
+		os.Exit(1)
 	}
 	return output_dir
 }
 
-func RunJob(headnode, command, sweep, output_dir, pattern string, nodes []string, cache_size, prompt int, background bool) {
+func RunJob(headnode, command, sweep, output_dir, pattern string, groups, nodes []string, cache_size, prompt int, background, intersect bool) {
 	dump := len(output_dir) > 0
 
 	// Setup connection
@@ -113,7 +114,7 @@ func RunJob(headnode, command, sweep, output_dir, pattern string, nodes []string
 	// 3. set ctx = context.WithTimeout(context.Background(), 10 * time.Second): out.Send() on headnode get error code = Canceled
 
 	// Start job
-	stream, err := c.StartClusJob(ctx, &pb.StartClusJobRequest{Command: command, Sweep: sweep, Pattern: pattern, Nodes: nodes})
+	stream, err := c.StartClusJob(ctx, &pb.StartClusJobRequest{Command: command, Sweep: sweep, Pattern: pattern, Groups: groups, GroupsIntersect: intersect, Nodes: nodes})
 	if err != nil {
 		fmt.Println("Failed to start job:", err)
 		return
@@ -128,7 +129,7 @@ func RunJob(headnode, command, sweep, output_dir, pattern string, nodes []string
 	} else {
 		all_nodes = output.GetNodes()
 		job_id = output.GetJobId()
-		fmt.Printf("Job %v started on %v node(s) in cluster %v.\n", job_id, len(all_nodes), headnode)
+		fmt.Printf("Job %v started on %v nodes in cluster %v.\n", job_id, len(all_nodes), headnode)
 		if dump {
 			fmt.Println("Dumping output to", output_dir)
 		} else if background {
@@ -186,11 +187,11 @@ func RunJob(headnode, command, sweep, output_dir, pattern string, nodes []string
 	signal.Notify(ch, os.Interrupt)
 	go func() {
 		<-ch
-		Summary(cache, finished_nodes, failed_nodes, all_nodes, cache_size, job_time)
+		summary(cache, finished_nodes, failed_nodes, all_nodes, cache_size, job_time)
 		if len(all_nodes) > len(finished_nodes) {
 			fmt.Printf("Job %v is still running.\n", job_id)
 		}
-		os.Exit(0)
+		os.Exit(1)
 	}()
 
 	// Receive output
@@ -252,11 +253,11 @@ func RunJob(headnode, command, sweep, output_dir, pattern string, nodes []string
 		}
 	}
 	if !background {
-		Summary(cache, finished_nodes, failed_nodes, all_nodes, cache_size, job_time)
+		summary(cache, finished_nodes, failed_nodes, all_nodes, cache_size, job_time)
 	}
 }
 
-func Summary(cache map[string][]rune, finished_nodes, failed_nodes, all_nodes []string, cache_size int, job_time []time.Duration) {
+func summary(cache map[string][]rune, finished_nodes, failed_nodes, all_nodes []string, cache_size int, job_time []time.Duration) {
 	if cache_size > 0 {
 		fmt.Println()
 		nodes := make([]string, 0, len(cache))
@@ -275,7 +276,7 @@ func Summary(cache map[string][]rune, finished_nodes, failed_nodes, all_nodes []
 			fmt.Println(string(output))
 		}
 	}
-	min, max, mean, mid, std_dev := GetTimeStat(job_time)
+	min, max, mean, mid, std_dev := getTimeStat(job_time)
 	fmt.Println(GetPaddingLine(""))
 	runtime := fmt.Sprintf("Runtime: Min=%v, Max=%v, Mean=%v, Mid=%v, SD=%v", min, max, mean, mid, std_dev)
 	if len(runtime) <= ConsoleWidth {
@@ -284,14 +285,14 @@ func Summary(cache map[string][]rune, finished_nodes, failed_nodes, all_nodes []
 		fmt.Println(strings.ReplaceAll(strings.ReplaceAll(runtime, " ", "\n"), ",", ""))
 		fmt.Println()
 	}
-	fmt.Printf("%v of %v node(s) succeeded.\n", len(finished_nodes)-len(failed_nodes), len(all_nodes))
+	fmt.Printf("%v of %v nodes succeeded.\n", len(finished_nodes)-len(failed_nodes), len(all_nodes))
 	if len(failed_nodes) > 0 {
 		sort.Strings(failed_nodes)
-		fmt.Printf("Failed node(s) (%v/%v): %v\n", len(failed_nodes), len(all_nodes), strings.Join(failed_nodes, ", "))
+		fmt.Printf("Failed nodes (%v/%v): %v\n", len(failed_nodes), len(all_nodes), strings.Join(failed_nodes, ", "))
 	}
 }
 
-func GetTimeStat(data []time.Duration) (min, max, mean, mid, std_dev time.Duration) {
+func getTimeStat(data []time.Duration) (min, max, mean, mid, std_dev time.Duration) {
 	n := len(data)
 	if n == 0 {
 		return

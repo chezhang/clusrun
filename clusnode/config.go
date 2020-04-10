@@ -173,7 +173,7 @@ func LoadNodeConfigs() {
 
 	if clusnode_config, ok := node_config[Config_Clusnode].(map[string]interface{}); ok {
 		if headnodes, ok := clusnode_config[Config_Clusnode_Headnodes_Name].([]interface{}); ok {
-			LogInfo("Adding loaded headnode(s): %v", headnodes)
+			LogInfo("Adding loaded headnodes: %v", headnodes)
 			for _, headnode := range headnodes {
 				if h, ok := headnode.(string); !ok {
 					LogError("Headnode %v is not string format", headnode)

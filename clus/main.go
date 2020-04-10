@@ -35,9 +35,9 @@ Usage:
 	clus <command> [arguments]
 
 The commands are:
-	node            - list node(s) in the cluster
-	run             - run a command or script on node(s) in the cluster
-	job             - list job(s) in the cluster
+	node            - list nodes, add nodes to groups or remove nodes from groups in the cluster
+	run             - run a command or script on nodes in the cluster
+	job             - list, cancel or rerun jobs in the cluster
 
 Usage of node:
 	clus node [options]

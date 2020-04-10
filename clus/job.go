@@ -39,7 +39,7 @@ func Job(args []string) {
 		if no_job_args {
 			job_ids[jobId_last] = false
 		}
-		CancelJobs(ParseHeadnode(*headnode), job_ids)
+		cancelJobs(ParseHeadnode(*headnode), job_ids)
 		if !*rerun {
 			return
 		}
@@ -47,7 +47,7 @@ func Job(args []string) {
 	if no_job_args {
 		job_ids[jobId_all] = false
 	}
-	jobs := GetJobs(ParseHeadnode(*headnode), job_ids)
+	jobs := getJobs(ParseHeadnode(*headnode), job_ids)
 	if *rerun {
 		if no_job_args {
 			fmt.Println("Please specify jobs to rerun.")
@@ -56,7 +56,7 @@ func Job(args []string) {
 		} else {
 			for _, job := range jobs {
 				fmt.Printf("Rerun job %v: ", job.Id)
-				RunJob(ParseHeadnode(*headnode), job.Command, job.Sweep, "", "", job.Nodes, 0, 0, true)
+				RunJob(ParseHeadnode(*headnode), job.Command, job.Sweep, "", "", nil, job.Nodes, 0, 0, true, false)
 			}
 		}
 		return
@@ -70,9 +70,9 @@ func Job(args []string) {
 	}
 	switch strings.ToLower(*format) {
 	case "table":
-		JobPrintTable(jobs)
+		jobPrintTable(jobs)
 	case "list":
-		JobPrintList(jobs)
+		jobPrintList(jobs)
 	default:
 		fmt.Println("Invalid format option:", *format)
 		return
@@ -128,7 +128,7 @@ func parseJobIds(args []string) (job_ids map[int32]bool, err error) {
 	return
 }
 
-func CancelJobs(headnode string, job_ids map[int32]bool) {
+func cancelJobs(headnode string, job_ids map[int32]bool) {
 	// Setup connection
 	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
@@ -136,18 +136,18 @@ func CancelJobs(headnode string, job_ids map[int32]bool) {
 	if err != nil {
 		fmt.Println("Can not connect:", err)
 		fmt.Printf("Please ensure the headnode %v is started and accessible\n", headnode)
-		os.Exit(0)
+		os.Exit(1)
 	}
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)
 	ctx, cancel = context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
 
-	// Cancel job(s) in the cluster
+	// Cancel jobs in the cluster
 	reply, err := c.CancelClusJobs(ctx, &pb.CancelClusJobsRequest{JobIds: job_ids})
 	if err != nil {
-		fmt.Println("Can not cancel job(s):", err)
-		os.Exit(0)
+		fmt.Println("Can not cancel jobs:", err)
+		os.Exit(1)
 	}
 	result := reply.GetResult()
 	if len(result) == 0 {
@@ -159,12 +159,12 @@ func CancelJobs(headnode string, job_ids map[int32]bool) {
 		}
 		for state, ids := range states {
 			sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-			fmt.Printf("%v job(s): %v\n", state, ids)
+			fmt.Printf("%v jobs: %v\n", state, ids)
 		}
 	}
 }
 
-func GetJobs(headnode string, ids map[int32]bool) []*pb.Job {
+func getJobs(headnode string, ids map[int32]bool) []*pb.Job {
 	// Setup connection
 	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
@@ -172,29 +172,29 @@ func GetJobs(headnode string, ids map[int32]bool) []*pb.Job {
 	if err != nil {
 		fmt.Println("Can not connect:", err)
 		fmt.Printf("Please ensure the headnode %v is started and accessible\n", headnode)
-		os.Exit(0)
+		os.Exit(1)
 	}
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)
 	ctx, cancel = context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
 
-	// Get job(s) in the cluster
+	// Get jobs in the cluster
 	reply, err := c.GetJobs(ctx, &pb.GetJobsRequest{JobIds: ids})
 	if err != nil {
-		fmt.Println("Can not get job(s):", err)
-		os.Exit(0)
+		fmt.Println("Can not get jobs:", err)
+		os.Exit(1)
 	}
 	jobs := reply.GetJobs()
 	return jobs
 }
 
-func JobPrintTable(jobs []*pb.Job) {
+func jobPrintTable(jobs []*pb.Job) {
 	if len(jobs) > 0 {
 		gap := 3
-		min_command_length := 10
-		max_id_length, max_state_length, max_nodes_length, max_command_length := GetJobTableMaxLength(jobs)
+		max_id_length, max_state_length, max_nodes_length, max_command_length := getJobTableMaxLength(jobs)
 		header_id, header_state, header_nodes, header_command := "Id", "State", "Nodes", "Command"
+		min_command_length := len(header_command) + gap
 		if max_id_length < len(header_id) {
 			max_id_length = len(header_id)
 		}
@@ -248,7 +248,7 @@ func JobPrintTable(jobs []*pb.Job) {
 	fmt.Println("Job count:", len(jobs))
 }
 
-func JobPrintList(jobs []*pb.Job) {
+func jobPrintList(jobs []*pb.Job) {
 	item_id, item_state, item_nodes, item_createTime, item_endTime, item_failedNodes, item_cancelFailedNodes, item_sweep, item_command :=
 		"Id", "State", "Nodes", "Create Time", "End Time", "Failed Nodes", "Cancel Failed Nodes", "Sweep Parameter", "Command"
 	maxLength := MaxInt(len(item_id), len(item_state), len(item_nodes), len(item_createTime), len(item_endTime),
@@ -289,7 +289,7 @@ func JobPrintList(jobs []*pb.Job) {
 	fmt.Println("Job count:", len(jobs))
 }
 
-func GetJobTableMaxLength(jobs []*pb.Job) (id, state, nodes, command int) {
+func getJobTableMaxLength(jobs []*pb.Job) (id, state, nodes, command int) {
 	for _, job := range jobs {
 		if length := len(strconv.Itoa(int(job.Id))); length > id {
 			id = length
