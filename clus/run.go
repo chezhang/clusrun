@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/status"
 	"io"
 	"io/ioutil"
 	"math"
@@ -102,7 +103,7 @@ func RunJob(headnode, command, sweep, output_dir, pattern string, groups, nodes 
 	if err != nil {
 		fmt.Println("Can not connect:", err)
 		fmt.Printf("Please ensure the headnode %v is started and accessible.", headnode)
-		return
+		os.Exit(1)
 	}
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)
@@ -117,15 +118,15 @@ func RunJob(headnode, command, sweep, output_dir, pattern string, groups, nodes 
 	stream, err := c.StartClusJob(ctx, &pb.StartClusJobRequest{Command: command, Sweep: sweep, Pattern: pattern, Groups: groups, GroupsIntersect: intersect, Nodes: nodes})
 	if err != nil {
 		fmt.Println("Failed to start job:", err)
-		return
+		os.Exit(1)
 	}
 	var finished_nodes, failed_nodes, all_nodes []string
 	var job_id int32
 	start_time := time.Now()
 	job_time := make([]time.Duration, 0, len(all_nodes))
 	if output, err := stream.Recv(); err != nil {
-		fmt.Println("Failed to start job:", err)
-		return
+		fmt.Println(status.Convert(err).Message())
+		os.Exit(1)
 	} else {
 		all_nodes = output.GetNodes()
 		job_id = output.GetJobId()
@@ -161,7 +162,7 @@ func RunJob(headnode, command, sweep, output_dir, pattern string, groups, nodes 
 			}
 			if err != nil {
 				fmt.Printf("Failed to create output file: %v\n", err)
-				return
+				os.Exit(1)
 			}
 			defer f_stdout[node].Close()
 			defer f_stderr[node].Close()
@@ -191,7 +192,7 @@ func RunJob(headnode, command, sweep, output_dir, pattern string, groups, nodes 
 		if len(all_nodes) > len(finished_nodes) {
 			fmt.Printf("Job %v is still running.\n", job_id)
 		}
-		os.Exit(1)
+		os.Exit(0)
 	}()
 
 	// Receive output
@@ -247,7 +248,7 @@ func RunJob(headnode, command, sweep, output_dir, pattern string, groups, nodes 
 				}
 				if err != nil {
 					fmt.Printf("Failed to write file: %v\n", err)
-					return
+					os.Exit(1)
 				}
 			}
 		}

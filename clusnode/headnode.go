@@ -140,13 +140,25 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 		in.GetCommand(), in.GetNodes(), in.GetPattern(), in.GetGroups(), in.GetGroupsIntersect(), in.GetSweep()
 	LogInfo("Creating new job with command: %v", command)
 
+	// Validate groups
+	var invalid_groups []string
+	for _, group := range groups {
+		if _, ok := NodeGroups.Load(group); !ok {
+			invalid_groups = append(invalid_groups, group)
+		}
+	}
+	if len(invalid_groups) > 0 {
+		LogWarning("Invalid node groups to create job: %v", invalid_groups)
+		return errors.New(fmt.Sprintf("Invalid groups: %v", invalid_groups))
+	}
+
 	// Get nodes
 	nodes, invalid_nodes := getValidNodes(nodes, pattern, groups, intersect)
 	sort.Strings(nodes)
 	sort.Strings(invalid_nodes)
 	if len(invalid_nodes) > 0 {
 		LogWarning("Invalid nodes to create job: %v", invalid_nodes)
-		return errors.New(fmt.Sprintf("Invalid nodes (%v): %v", len(invalid_nodes), invalid_nodes))
+		return errors.New(fmt.Sprintf("Invalid nodes: %v", invalid_nodes))
 	}
 	if len(nodes) == 0 {
 		message := "No valid nodes to create job"
