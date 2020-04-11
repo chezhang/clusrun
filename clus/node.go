@@ -296,6 +296,9 @@ func setNodeGroups(headnode, nodeGroups string, nodes []*pb.Node, remove bool) {
 
 func printGroup(name string, nodes []string) {
 	if len(nodes) > 0 {
+		if len(name) > 0 {
+			name = fmt.Sprintf("[%v]", name)
+		}
 		fmt.Println(GetPaddingLine(fmt.Sprintf("---%v---", name)))
 		max_name_length := 0
 		for i := range nodes {
