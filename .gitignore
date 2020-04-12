@@ -1,7 +1,10 @@
-*.exe
-*.exe~
-*.exe.*
-*.zip
+clus
+clus.exe
+clus.exe~
+clusnode
+clusnode.exe
+clusnode.exe~
+clusnode.exe.*
 .vscode
-*.tar
-*.tar.gz
+release/*
+!release/build.ps1
