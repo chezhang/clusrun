@@ -1,8 +1,8 @@
 package main
 
 import (
-	pb "../protobuf"
-	"./platform"
+	pb "clusrun/protobuf"
+	"clusrun/clusnode/platform"
 	grpc "google.golang.org/grpc"
 
 	"context"

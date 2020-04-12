@@ -1,7 +1,7 @@
 package main
 
 import (
-	pb "../protobuf"
+	pb "clusrun/protobuf"
 	"context"
 	"flag"
 	"fmt"
