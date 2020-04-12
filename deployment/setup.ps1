@@ -5,7 +5,7 @@ Param(
     [string] $headnodes = "localhost",
     [int] $port = 50505,
     [string] $location = "C:\Program Files\clusrun",
-    [string] $setup_url = "https://github.com/chezhang/clusrun/releases/download/0.1.0/setup.zip",
+    [string] $setup_url = "https://github.com/chezhang/clusrun/releases/download/0.2.0/setup.zip",
     [Parameter(ParameterSetName = "install")]
     [switch] $reinstall = $false,
     [Parameter(ParameterSetName = "uninstall")]
@@ -46,3 +46,5 @@ Start-Sleep 1
 
 "$(Get-Date)  Set headnodes to $headnodes"
 .\clusnode.exe config set -headnodes "$headnodes" -node "localhost:$port"
+
+"$(Get-Date)  Clusrun is installed in $location"

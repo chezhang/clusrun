@@ -11,4 +11,7 @@ if [ "${1,,}" == "-cleanup" ]; then
 fi
 
 rm -f "$dir/clusnode" "$dir/clus"
-rm -f "$0"
+
+if [ "${1,,}" == "-cleanup" ]; then
+    rm -f "$0"
+fi

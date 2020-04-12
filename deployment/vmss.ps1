@@ -7,7 +7,7 @@ Param(
     [switch] $uninstall = $false
 )
 
-$baseUrl = "https://github.com/chezhang/clusrun/releases/download/0.1.0"
+$baseUrl = "https://github.com/chezhang/clusrun/releases/download/0.2.0"
 $vmssExtensionName = "Install_clusrun"
 $installParameter = ""
 
