@@ -1,8 +1,8 @@
 package main
 
 import (
-	pb "clusrun/protobuf"
 	"clusrun/clusnode/platform"
+	pb "clusrun/protobuf"
 	grpc "google.golang.org/grpc"
 
 	"context"
@@ -219,45 +219,42 @@ func getJobLabel(headnode string, job_id int) string {
 	return FileNameFormatHost(headnode) + "." + strconv.Itoa(job_id)
 }
 
-func AddHeadnode(headnode string) (added string, e error) {
-	_, _, headnode, err := ParseHostAddress(headnode)
+func AddHeadnode(headnode string) (string, error) {
+	_, _, host, err := ParseHostAddress(headnode)
 	if err != nil {
-		e = errors.New("Failed to parse headnode host address: " + err.Error())
-		return
+		return headnode, errors.New("Failed to parse headnode host address: " + err.Error())
 	}
-	if state, ok := headnodesReporting.LoadOrStore(headnode, &heartbeat_state{Connected: false, Stopped: false}); ok {
+	if state, ok := headnodesReporting.LoadOrStore(host, &heartbeat_state{Connected: false, Stopped: false}); ok {
 		s := state.(*heartbeat_state)
 		if s.Stopped {
 			s.Stopped = false
 			s.Connected = false
 		} else {
 			if s.Connected {
-				e = errors.New("Already connected")
+				return host, errors.New("Already connected")
 			} else {
-				e = errors.New("Connecting")
+				return host, errors.New("Connecting")
 			}
-			return
 		}
 	} else {
-		go heartbeat(NodeHost, headnode)
+		go heartbeat(NodeHost, host)
 	}
-	added = headnode
-	return
+	return host, nil
 }
 
 func removeHeadnode(headnode string) (removed string, e error) {
-	_, _, headnode, err := ParseHostAddress(headnode)
+	_, _, host, err := ParseHostAddress(headnode)
 	if err != nil {
 		e = errors.New("Failed to parse headnode host address: " + err.Error())
 		return
 	}
-	if state, ok := headnodesReporting.Load(headnode); ok {
+	if state, ok := headnodesReporting.Load(host); ok {
 		s := state.(*heartbeat_state)
 		if s.Stopped {
 			e = errors.New("Already removed")
 		} else {
 			state.(*heartbeat_state).Stopped = true
-			removed = headnode
+			removed = host
 		}
 	} else {
 		e = errors.New("Invalid headnode")
