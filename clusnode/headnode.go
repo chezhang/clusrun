@@ -442,6 +442,7 @@ func startJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 
 	// Setup connection
 	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
+	defer cancel()
 	conn, err := grpc.DialContext(ctx, parseHost(node), grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		LogError("Can not connect node %v in %v: %v", node, ConnectTimeout, err)
@@ -543,6 +544,7 @@ func cancelJobOnNode(id int32, node string, wg *sync.WaitGroup, result *sync.Map
 
 	// Setup connection
 	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
+	defer cancel()
 	conn, err := grpc.DialContext(ctx, parseHost(node), grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		LogError("Can not connect node %v in %v: %v", node, ConnectTimeout, err)

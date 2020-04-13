@@ -287,7 +287,7 @@ func heartbeat(from, headnode string) {
 				LogInfo("Start heartbeat from %v to %v", from, headnode)
 				stopped = false
 			}
-			ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
+			ctx, cancelConn := context.WithTimeout(context.Background(), ConnectTimeout)
 			conn, err := grpc.DialContext(ctx, headnode, grpc.WithInsecure(), grpc.WithBlock())
 			if err != nil {
 				LogError("Can not connect %v in %v: %v", headnode, ConnectTimeout, err)
@@ -308,7 +308,7 @@ func heartbeat(from, headnode string) {
 				conn.Close()
 			}
 			state.(*heartbeat_state).Connected = connected
-			cancel()
+			cancelConn()
 		} else if !stopped {
 			LogInfo("Stop heartbeat from %v to %v", from, headnode)
 			stopped = true
