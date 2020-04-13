@@ -48,3 +48,8 @@ sleep 1
 
 add_to_path="export PATH=\$PATH:$location"
 grep -Fxq "$add_to_path" /etc/profile || echo $add_to_path >>/etc/profile
+
+echo
+echo Clusrun is installed in $location
+echo Please source /etc/profile or start a new login shell to load updated PATH
+echo
