@@ -95,6 +95,7 @@ message Job {
   JobState state = 7;
   map<string, int32> failed_nodes = 8;
   repeated string cancel_failed_nodes = 9;
+  repeated string arguments = 10;
 }
 
 message GetJobsReply {
@@ -119,6 +120,7 @@ message StartClusJobRequest {
   repeated string groups = 4;
   bool groups_intersect = 5;
   string sweep = 6;
+  repeated string arguments = 7;
 }
 
 message StartClusJobReply {
@@ -142,6 +144,7 @@ message StartJobRequest {
   string headnode = 1;
   int32 job_id = 2;
   string command = 3;
+  repeated string arguments = 4;
 }
 
 message StartJobReply {

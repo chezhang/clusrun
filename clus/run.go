@@ -35,11 +35,10 @@ func Run(args []string) {
 	// merge := fs.Bool("merge", false, "specify if merge outputs with the same content for different nodes")
 	fs.Parse(args)
 	command := strings.Join(fs.Args(), " ")
+	var arguments []string
 	if len(*script) > 0 {
-		if len(command) > 0 {
-			fmt.Printf("[Warning] The command '%v' will be overwritten by scirpt %v\n", command, *script)
-		}
 		command = parseScript(*script)
+		arguments = fs.Args()
 	} else if len(command) <= 0 {
 		displayRunUsage(fs)
 		return
@@ -48,7 +47,7 @@ func Run(args []string) {
 	if *dump {
 		output_dir = createOutputDir()
 	}
-	RunJob(ParseHeadnode(*headnode), command, *sweep, output_dir, *pattern, parseNodesOrGroups(*groups), parseNodesOrGroups(*nodes), *cache, *prompt, *background, *groups_intersect)
+	RunJob(ParseHeadnode(*headnode), command, *sweep, output_dir, *pattern, arguments, parseNodesOrGroups(*groups), parseNodesOrGroups(*nodes), *cache, *prompt, *background, *groups_intersect)
 }
 
 func displayRunUsage(fs *flag.FlagSet) {
@@ -93,7 +92,7 @@ func createOutputDir() string {
 	return output_dir
 }
 
-func RunJob(headnode, command, sweep, output_dir, pattern string, groups, nodes []string, cache_size, prompt int, background, intersect bool) {
+func RunJob(headnode, command, sweep, output_dir, pattern string, arguments, groups, nodes []string, cache_size, prompt int, background, intersect bool) {
 	dump := len(output_dir) > 0
 
 	// Setup connection
@@ -115,7 +114,7 @@ func RunJob(headnode, command, sweep, output_dir, pattern string, groups, nodes 
 	// 3. set ctx = context.WithTimeout(context.Background(), 10 * time.Second): out.Send() on headnode get error code = Canceled
 
 	// Start job
-	stream, err := c.StartClusJob(ctx, &pb.StartClusJobRequest{Command: command, Sweep: sweep, Pattern: pattern, Groups: groups, GroupsIntersect: intersect, Nodes: nodes})
+	stream, err := c.StartClusJob(ctx, &pb.StartClusJobRequest{Command: command, Arguments: arguments, Sweep: sweep, Pattern: pattern, Groups: groups, GroupsIntersect: intersect, Nodes: nodes})
 	if err != nil {
 		fmt.Println("Failed to start job:", err)
 		os.Exit(1)
@@ -140,6 +139,9 @@ func RunJob(headnode, command, sweep, output_dir, pattern string, groups, nodes 
 			fmt.Println()
 			if len(sweep) > 0 {
 				fmt.Println("Sweep parameter:", sweep)
+			}
+			if len(arguments) > 0 {
+				fmt.Printf("Arguments: %q\n", arguments)
 			}
 			fmt.Println(GetPaddingLine("---Command---"))
 			fmt.Println(command)

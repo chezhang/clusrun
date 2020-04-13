@@ -83,7 +83,7 @@ func (s *clusnode_server) SetHeadnodes(ctx context.Context, in *pb.SetHeadnodesR
 
 func (s *clusnode_server) StartJob(in *pb.StartJobRequest, out pb.Clusnode_StartJobServer) error {
 	defer LogPanicBeforeExit()
-	headnode, job_id, command := in.GetHeadnode(), in.GetJobId(), in.GetCommand()
+	headnode, job_id, command, arguments := in.GetHeadnode(), in.GetJobId(), in.GetCommand(), in.GetArguments()
 	LogInfo("Receive StartJob from headnode %v to start job %v with command: %v", headnode, job_id, command)
 	job_label := getJobLabel(headnode, int(job_id))
 
@@ -103,6 +103,7 @@ func (s *clusnode_server) StartJob(in *pb.StartJobRequest, out pb.Clusnode_Start
 		start_point = "cmd"
 		args = []string{"/q", "/c", cmd_file}
 	}
+	args = append(args, arguments...)
 	cmd := exec.Command(start_point, args...)
 	platform.SetSysProcAttr(cmd)
 	var stdout, stderr io.Reader

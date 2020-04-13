@@ -56,7 +56,7 @@ func Job(args []string) {
 		} else {
 			for _, job := range jobs {
 				fmt.Printf("Rerun job %v: ", job.Id)
-				RunJob(ParseHeadnode(*headnode), job.Command, job.Sweep, "", "", nil, job.Nodes, 0, 0, true, false)
+				RunJob(ParseHeadnode(*headnode), job.Command, job.Sweep, "", "", job.Arguments, nil, job.Nodes, 0, 0, true, false)
 			}
 		}
 		return
@@ -249,10 +249,10 @@ func jobPrintTable(jobs []*pb.Job) {
 }
 
 func jobPrintList(jobs []*pb.Job) {
-	item_id, item_state, item_nodes, item_createTime, item_endTime, item_failedNodes, item_cancelFailedNodes, item_sweep, item_command :=
-		"Id", "State", "Nodes", "Create Time", "End Time", "Failed Nodes", "Cancel Failed Nodes", "Sweep Parameter", "Command"
+	item_id, item_state, item_nodes, item_createTime, item_endTime, item_failedNodes, item_cancelFailedNodes, item_sweep, item_arguments, item_command :=
+		"Id", "State", "Nodes", "Create Time", "End Time", "Failed Nodes", "Cancel Failed Nodes", "Sweep Parameter", "Arguments", "Command"
 	maxLength := MaxInt(len(item_id), len(item_state), len(item_nodes), len(item_createTime), len(item_endTime),
-		len(item_sweep), len(item_failedNodes), len(item_cancelFailedNodes), len(item_command))
+		len(item_sweep), len(item_failedNodes), len(item_cancelFailedNodes), len(item_arguments), len(item_command))
 	print := func(name string, value interface{}) {
 		fmt.Printf("%-*v : %v\n", maxLength, name, value)
 	}
@@ -282,6 +282,9 @@ func jobPrintList(jobs []*pb.Job) {
 		}
 		if sweep := job.Sweep; len(sweep) > 0 {
 			print(item_sweep, sweep)
+		}
+		if args := job.Arguments; len(args) > 0 {
+			print(item_arguments, fmt.Sprintf("%q", args))
 		}
 		print(item_command, job.Command)
 		fmt.Println(GetPaddingLine(""))

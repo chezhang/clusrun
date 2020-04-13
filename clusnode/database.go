@@ -85,7 +85,7 @@ func InitDatabase() {
 	}
 }
 
-func CreateNewJob(command string, sweep string, nodes []string) (int, error) {
+func CreateNewJob(command string, args []string, sweep string, nodes []string) (int, error) {
 	// Add new job in job list
 	db_jobsLock.Lock()
 	defer db_jobsLock.Unlock()
@@ -106,6 +106,7 @@ func CreateNewJob(command string, sweep string, nodes []string) (int, error) {
 	new_job := pb.Job{
 		Id:         int32(new_id),
 		Command:    command,
+		Arguments:  args,
 		CreateTime: time.Now().Unix(),
 		State:      pb.JobState_Created,
 		Nodes:      nodes,

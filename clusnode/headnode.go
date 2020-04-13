@@ -136,8 +136,8 @@ func (s *headnode_server) GetJobs(ctx context.Context, in *pb.GetJobsRequest) (*
 
 func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headnode_StartClusJobServer) error {
 	defer LogPanicBeforeExit()
-	command, nodes, pattern, groups, intersect, sweep :=
-		in.GetCommand(), in.GetNodes(), in.GetPattern(), in.GetGroups(), in.GetGroupsIntersect(), in.GetSweep()
+	command, arguments, nodes, pattern, groups, intersect, sweep :=
+		in.GetCommand(), in.GetArguments(), in.GetNodes(), in.GetPattern(), in.GetGroups(), in.GetGroupsIntersect(), in.GetSweep()
 	LogInfo("Creating new job with command: %v", command)
 
 	// Validate groups
@@ -175,7 +175,7 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	}
 
 	// Create job
-	id, err := CreateNewJob(command, sweep, nodes)
+	id, err := CreateNewJob(command, arguments, sweep, nodes)
 	if err != nil {
 		LogError("Failed to create job: %v", err)
 		return err
@@ -192,10 +192,15 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	for i, node := range nodes {
 		wg.Add(1)
 		c := command
+		a := make([]string, len(arguments))
 		if len(sweep) > 0 {
-			c = strings.ReplaceAll(command, placeholder, strconv.Itoa(sweepSequence[i]))
+			s := strconv.Itoa(sweepSequence[i])
+			c = strings.ReplaceAll(command, placeholder, s)
+			for i, v := range arguments {
+				a[i] = strings.ReplaceAll(v, placeholder, s)
+			}
 		}
-		go startJobOnNode(id, c, node, &job_on_nodes, out, &wg, Config_Headnode_StoreOutput.GetBool())
+		go startJobOnNode(id, c, a, node, &job_on_nodes, out, &wg, Config_Headnode_StoreOutput.GetBool())
 	}
 	UpdateJobState(id, pb.JobState_Dispatching, pb.JobState_Running)
 	wg.Wait()
@@ -419,7 +424,7 @@ func parseHost(display_name string) string {
 	}
 }
 
-func startJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb.Headnode_StartClusJobServer, wg *sync.WaitGroup, save_output bool) {
+func startJobOnNode(id int, command string, args []string, node string, job_on_nodes *sync.Map, out pb.Headnode_StartClusJobServer, wg *sync.WaitGroup, save_output bool) {
 	defer wg.Done()
 	LogInfo("Start job %v on node %v", id, node)
 
@@ -453,7 +458,7 @@ func startJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 	defer cancel()
 
 	// Start job on clusnode
-	stream, err := c.StartJob(ctx, &pb.StartJobRequest{JobId: int32(id), Command: command, Headnode: NodeHost})
+	stream, err := c.StartJob(ctx, &pb.StartJobRequest{JobId: int32(id), Command: command, Arguments: args, Headnode: NodeHost})
 	if err != nil {
 		LogError("Failed to start job %v on node %v: %v", id, node, err)
 		job_on_nodes.Store(node, jobOnNode{state: pb.JobState_Failed})
