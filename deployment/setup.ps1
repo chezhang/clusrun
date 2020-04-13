@@ -5,7 +5,7 @@ Param(
     [string] $headnodes = "localhost",
     [int] $port = 50505,
     [string] $location = "C:\Program Files\clusrun",
-    [string] $setup_url = "https://github.com/chezhang/clusrun/releases/download/0.2.0/setup.zip",
+    [string] $setup_url = "https://github.com/chezhang/clusrun/releases/download/v0.2.0/setup.zip",
     [Parameter(ParameterSetName = "install")]
     [switch] $reinstall = $false,
     [Parameter(ParameterSetName = "uninstall")]
