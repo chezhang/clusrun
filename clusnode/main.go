@@ -58,6 +58,7 @@ Usage of start:
 Usage of config:
 	clusnode config <command> [configs]
 	clusnode config -h
+
 `)
 }
 

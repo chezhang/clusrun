@@ -50,5 +50,6 @@ Usage of run:
 Usage of job:
 	clus job [options] [jobs]
 	clus job -h
+
 `)
 }
