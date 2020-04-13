@@ -11,6 +11,7 @@ if [ "${1,,}" == "-cleanup" ]; then
 fi
 
 rm -f "$dir/clusnode" "$dir/clus"
+rm -f /usr/local/bin/clus /usr/local/bin/clusnode
 
 if [ "${1,,}" == "-cleanup" ]; then
     rm -f "$0"
