@@ -16,7 +16,7 @@ Param(
 
 if ($uninstall -or $reinstall) {
     "$(Get-Date)  Uninstall clusrun in $location"
-    & "$location\uninstall.bat"
+    & "$location\uninstall.bat" -cleanup
     if ($uninstall) {
         return
     }
@@ -39,12 +39,11 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 [System.IO.Compression.ZipFile]::ExtractToDirectory($setup_url, $location)
 
 "$(Get-Date)  Install clusrun"
-Set-Location $location
-.\install.bat $port
-Remove-Item install.bat
+& "$location\install.bat" $port
+Remove-Item "$location\install.bat"
 Start-Sleep 1
 
 "$(Get-Date)  Set headnodes to $headnodes"
-.\clusnode.exe config set -headnodes "$headnodes" -node "localhost:$port"
+clusnode config set -headnodes "$headnodes" -node "localhost:$port"
 
 "$(Get-Date)  Clusrun is installed in $location"

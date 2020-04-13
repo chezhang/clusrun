@@ -24,8 +24,8 @@ if ($windows -and $linux -or !$windows -and !$linux) {
     return
 }
 
-if (!$headnodes) {
-    $firstInstance = Get-AzVmssVM -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName -InstanceId 0
+if (!$headnodes -and !$uninstall) {
+    $firstInstance = (Get-AzVmssVM -ResourceGroupName $resourceGroup -VMScaleSetName $vmssName)[0]
     if (!$firstInstance) {
         "Can not get the first instance in VMSS"
         return

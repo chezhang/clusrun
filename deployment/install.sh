@@ -2,7 +2,7 @@
 
 port=${1:-50505}
 
-systemctl stop clusrun
+systemctl stop clusrun 2>/dev/null
 
 pushd $(dirname "$0")
 

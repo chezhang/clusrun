@@ -1,5 +1,6 @@
 #!/bin/bash
 
+systemctl daemon-reload
 systemctl stop clusrun
 rm -f /etc/systemd/system/clusrun.service
 
