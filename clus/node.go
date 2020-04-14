@@ -18,8 +18,8 @@ func Node(args []string) {
 	filterBy_state := fs.String("state", "", "filter nodes in the specified state (ready, error or lost)")
 	filterBy_groups := fs.String("groups", "", "filter nodes in the specified node groups")
 	filterBy_groups_intersect := fs.Bool("intersect", false, "specify to filter nodes in intersection (union if not specified) of node groups")
-	groupBy := fs.String("groupby", "", "group the nodes by state or node group")    // name prefix, running jobs
-	orderBy := fs.String("orderby", "name", "sort the nodes by name or node groups") // running jobs
+	groupBy := fs.String("groupby", "", "group the nodes by state or node group")         // name prefix, running jobs
+	orderBy := fs.String("orderby", "name", "sort the nodes by node name or node groups") // running jobs
 	format := fs.String("format", "table", "format the nodes in table, list or group")
 	addGroups := fs.String("addgroups", "", "add nodes to the specified node groups")
 	removeGroups := fs.String("removegroups", "", "remove nodes from the specified node groups")
@@ -149,6 +149,9 @@ func nodePrintTable(nodes []*pb.Node, group_by, order_by string) {
 				max_groups_length = len(header_groups)
 			}
 		}
+		for _, group := range groups {
+			sortNodes(group, order_by)
+		}
 		groups_width := max_groups_length
 		fmt.Printf("%-*s%-*s%-*s\n",
 			name_width, header_node,
@@ -159,9 +162,7 @@ func nodePrintTable(nodes []*pb.Node, group_by, order_by string) {
 			state_width, strings.Repeat("-", max_state_length),
 			groups_width, strings.Repeat("-", max_groups_length))
 		for i := range groups {
-			nodes := groups[i]
-			sortNodes(nodes, order_by)
-			for _, node := range nodes {
+			for _, node := range groups[i] {
 				node_groups := strings.Join(node.Groups, ", ")
 				if len(node_groups) > max_groups_length {
 					padding := "..."
@@ -402,7 +403,7 @@ func sortNodes(nodes []*pb.Node, order_by string) {
 	sort.Slice(nodes, func(i, j int) bool {
 		for k := range sorters {
 			switch strings.ToLower(strings.TrimSpace(sorters[k])) {
-			case "name":
+			case "name", "nodename":
 				result := strings.Compare(nodes[i].Name, nodes[j].Name)
 				if result != 0 {
 					return result < 0
