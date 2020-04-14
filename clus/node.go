@@ -33,30 +33,46 @@ func Node(args []string) {
 		fmt.Println("Invalid parameter:", strings.Join(fs.Args(), " "))
 		os.Exit(1)
 	}
+
+	// Get nodes
 	h := ParseHeadnode(*headnode)
 	nodes := getNodes(h, *filterBy_pattern, *filterBy_state, *filterBy_groups, *filterBy_groups_intersect)
+
+	// Add or remove node groups
+	var groupMsgs []string
 	if len(nodes) > 0 {
 		setGroups := false
 		if *addGroups != "" {
-			setNodeGroups(h, *addGroups, nodes, false)
+			groupMsgs = append(groupMsgs, setNodeGroups(h, *addGroups, nodes, false))
 			setGroups = true
 		}
 		if *removeGroups != "" {
-			setNodeGroups(h, *removeGroups, nodes, true)
+			groupMsgs = append(groupMsgs, setNodeGroups(h, *removeGroups, nodes, true))
 			setGroups = true
 		}
 		if setGroups {
 			nodes = getNodes(h, *filterBy_pattern, *filterBy_state, *filterBy_groups, *filterBy_groups_intersect)
-			fmt.Println()
 		}
 	}
+	printGroupMsgs := func() {
+		if len(groupMsgs) > 0 {
+			for _, msg := range groupMsgs {
+				fmt.Println(msg)
+			}
+		}
+	}
+
+	// Print nodes
 	switch strings.ToLower(*format) {
 	case "table":
 		nodePrintTable(nodes, *groupBy, *orderBy)
+		printGroupMsgs()
 	case "list":
 		nodePrintList(nodes, *groupBy, *orderBy)
+		printGroupMsgs()
 	case "group":
 		nodePrintGroups(nodes, *groupBy)
+		printGroupMsgs()
 	default:
 		fmt.Println("Invalid format option:", *format)
 		os.Exit(1)
@@ -246,7 +262,7 @@ func nodePrintGroups(nodes []*pb.Node, group_by string) {
 	}
 }
 
-func setNodeGroups(headnode, nodeGroups string, nodes []*pb.Node, remove bool) {
+func setNodeGroups(headnode, nodeGroups string, nodes []*pb.Node, remove bool) string {
 	// Parse node groups
 	all := false
 	groups := strings.Split(nodeGroups, ",")
@@ -292,7 +308,7 @@ func setNodeGroups(headnode, nodeGroups string, nodes []*pb.Node, remove bool) {
 	if all {
 		t = "all node groups"
 	}
-	fmt.Printf("Nodes are %v %v\n", v, t)
+	return fmt.Sprintf("Nodes are %v %v", v, t)
 }
 
 func printGroup(name string, nodes []string) {
