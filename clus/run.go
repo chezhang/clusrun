@@ -182,6 +182,9 @@ func RunJob(headnode, command, sweep, output_dir, pattern string, groups, nodes 
 
 	// Initialize output cache
 	cache := make(map[string][]rune, len(all_nodes))
+	for _, node := range all_nodes {
+		cache[node] = nil
+	}
 
 	// Handle SIGINT
 	ch := make(chan os.Signal, 1)
