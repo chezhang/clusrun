@@ -156,6 +156,7 @@ func (s *clusnode_server) StartJob(in *pb.StartJobRequest, out pb.Clusnode_Start
 		send_output(stderr, "stderr")
 		wg.Done()
 	}()
+	wg.Wait()
 
 	// Send exit code
 	exit_code := 0
@@ -165,7 +166,6 @@ func (s *clusnode_server) StartJob(in *pb.StartJobRequest, out pb.Clusnode_Start
 		}
 	}
 	LogInfo("Job %v finished with exit code %v", job_label, exit_code)
-	wg.Wait()
 	err = out.Send(&pb.StartJobReply{ExitCode: int32(exit_code)})
 	if err != nil {
 		LogError("Failed to send exitcode of job %v", job_label)
