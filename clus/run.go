@@ -85,7 +85,7 @@ func createOutputDir() string {
 		fmt.Printf("Failed to get working dir: %v", err)
 		os.Exit(1)
 	}
-	output_dir := filepath.Join(cur_dir, "clus.run."+time.Now().Format("20060102150405"))
+	output_dir := filepath.Join(cur_dir, "clus.run."+time.Now().Format("20060102150405.000000000"))
 	if err := os.MkdirAll(output_dir, 0644); err != nil {
 		fmt.Printf("Failed to create output dir: %v", err)
 		os.Exit(1)
@@ -258,6 +258,9 @@ func RunJob(headnode, command, sweep, output_dir, pattern string, groups, nodes 
 	}
 	if !background {
 		summary(cache, finished_nodes, failed_nodes, all_nodes, cache_size, job_time)
+	}
+	if dump {
+		fmt.Println("Output is dumped to", output_dir)
 	}
 }
 
