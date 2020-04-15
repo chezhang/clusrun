@@ -15,8 +15,7 @@ import (
 )
 
 const (
-	jobId_last = -1
-	jobId_all  = 0
+	jobId_all = 0
 )
 
 func Job(args []string) {
@@ -37,7 +36,8 @@ func Job(args []string) {
 	}
 	if *cancel {
 		if no_job_args {
-			job_ids[jobId_last] = false
+			fmt.Println("Please specify jobs to cancel.")
+			return
 		}
 		cancelJobs(ParseHeadnode(*headnode), job_ids)
 		if !*rerun {
@@ -88,7 +88,7 @@ func parseJobIds(args []string) (job_ids map[int32]bool, err error) {
 				continue
 			}
 			if id == "~~" || strings.ToLower(id) == "last" {
-				job_ids[jobId_last] = false
+				job_ids[-1] = false
 				continue
 			}
 			inverse := false
