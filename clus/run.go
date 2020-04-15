@@ -29,7 +29,7 @@ func Run(args []string) {
 	groups_intersect := fs.Bool("intersect", false, "specify to run the command in intersection (union if not specified) of node groups")
 	cache := fs.Int("cache", 1000, "specify the number of characters to cache and display for output of command on each node")
 	prompt := fs.Int("prompt", 1, "specify the number of nodes, the output of which will be displayed promptly")
-	sweep := fs.String("sweep", "", `perform parametric sweep by replacing specified placeholder string in the command on each node to sequence number (in specified range and step optionally) with format "placeholder[{begin[-end][,step]}]"`)
+	sweep := fs.String("sweep", "", `perform parametric sweep by replacing specified placeholder string in the command on each node to sequence number (in specified range and step optionally) with format "placeholder[{begin[-end][:step]}]"`)
 	background := fs.Bool("background", false, "run command without printing output")
 	// pick := fs.Int("pick", 0, "pick certain number of nodes to run, default 0 means pick all nodes")
 	// merge := fs.Bool("merge", false, "specify if merge outputs with the same content for different nodes")

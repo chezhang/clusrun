@@ -583,7 +583,7 @@ func parseSweep(sweep string, count int) (placeholder string, sequence []int) {
 		return
 	} else if len(sweep[0:index]) == 0 {
 		return
-	} else if parts := strings.Split(sweep[index+1:len(sweep)-1], ","); len(parts) > 2 {
+	} else if parts := strings.Split(sweep[index+1:len(sweep)-1], ":"); len(parts) > 2 {
 		return
 	} else {
 		if len(parts) == 2 {
