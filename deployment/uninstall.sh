@@ -1,8 +1,8 @@
 #!/bin/bash
 
 systemctl daemon-reload
-systemctl stop clusrun
-rm -f /etc/systemd/system/clusrun.service
+systemctl stop clusnode
+rm -f /etc/systemd/system/clusnode.service
 
 dir=$(dirname "$0")
 

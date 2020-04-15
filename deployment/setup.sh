@@ -20,7 +20,7 @@ while getopts h:l:s:ru option; do
 done
 
 if $uninstall || $reinstall; then
-    bash "$location/uninstall.sh -cleanup"
+    bash "$location/uninstall.sh" -cleanup
     if $uninstall; then
         exit
     fi

@@ -2,13 +2,13 @@
 
 port=${1:-50505}
 
-systemctl stop clusrun 2>/dev/null
+systemctl stop clusnode 2>/dev/null
 
 pushd $(dirname "$0")
 
-cat <<EOF >/etc/systemd/system/clusrun.service
+cat <<EOF >/etc/systemd/system/clusnode.service
 [Unit]
-Description=clusrun service
+Description=clusnode service
 
 [Service]
 User=root
@@ -20,8 +20,8 @@ WantedBy=multi-user.target
 EOF
 
 systemctl daemon-reload
-systemctl enable clusrun
-systemctl start clusrun
+systemctl enable clusnode
+systemctl start clusnode
 
 ln -s $(pwd)/clus /usr/local/bin/clus
 ln -s $(pwd)/clusnode /usr/local/bin/clusnode
