@@ -201,17 +201,17 @@ func config(args []string) {
 		nodes = strings.Split(*headnodes, ",")
 	}
 	headnode_config := make(map[string]string)
-	if *store_output != "" {
+	if store_output != nil && *store_output != "" {
 		headnode_config[Config_Headnode_StoreOutput.Name] = *store_output
 	}
-	if *timeout != "" {
+	if timeout != nil && *timeout != "" {
 		headnode_config[Config_Headnode_HeartbeatTimeoutSecond.Name] = *timeout
 	}
-	if *max_job_count != "" {
+	if max_job_count != nil && *max_job_count != "" {
 		headnode_config[Config_Headnode_MaxJobCount.Name] = *max_job_count
 	}
 	clusnode_config := make(map[string]string)
-	if *interval != "" {
+	if interval != nil && *interval != "" {
 		clusnode_config[Config_Clusnode_HeartbeatIntervalSecond.Name] = *interval
 	}
 	setOrGetConfig(*node, true, nodes, mode, headnode_config, clusnode_config)
