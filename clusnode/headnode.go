@@ -566,14 +566,15 @@ func heartbeatTimeout(last_report time.Time) bool {
 	return time.Since(last_report) > time.Duration(Config_Headnode_HeartbeatTimeoutSecond.GetInt())*time.Second
 }
 
-// Valid format: placeholder[{[-]begin[-[-]end][,[-]step]}]
+// Valid format: placeholder[{[-]begin[-[-]end][:[-]step]}]
 func parseSweep(sweep string, count int) (placeholder string, sequence []int) {
 	placeholder = sweep
 	sequence = make([]int, count)
 	for i := range sequence {
 		sequence[i] = i
 	}
-	begin, end, step := 0, Max_Int, 0
+	begin, end := 0, Max_Int
+	step, stepParsed := 0, false
 	if length := len(sweep); length == 0 {
 		return
 	} else if sweep[length-1:] != "}" {
@@ -587,12 +588,11 @@ func parseSweep(sweep string, count int) (placeholder string, sequence []int) {
 		return
 	} else {
 		if len(parts) == 2 {
-			// Format: placeholder{begin[-end],step}
+			// Format: placeholder{begin[-end]:step}
 			if s, err := strconv.Atoi(parts[1]); err != nil {
 				return
-			} else if s == 0 {
-				return
 			} else {
+				stepParsed = true
 				step = s
 				if step < 0 {
 					end = Min_Int
@@ -601,7 +601,7 @@ func parseSweep(sweep string, count int) (placeholder string, sequence []int) {
 		}
 		parts := strings.Split(parts[0], "-")
 		if len(parts) == 1 {
-			// Format: placeholder{begin[,step]}
+			// Format: placeholder{begin[:step]}
 			if b, err := strconv.Atoi(parts[0]); err != nil {
 				return
 			} else {
@@ -609,14 +609,14 @@ func parseSweep(sweep string, count int) (placeholder string, sequence []int) {
 			}
 		} else if len(parts) == 2 {
 			if len(parts[0]) == 0 {
-				// Format: placeholder{-begin[,step]}
+				// Format: placeholder{-begin[:step]}
 				if b, err := strconv.Atoi("-" + parts[1]); err != nil {
 					return
 				} else {
 					begin = b
 				}
 			} else {
-				// Format: placeholder{begin-end[,step]}
+				// Format: placeholder{begin-end[:step]}
 				if b, err := strconv.Atoi(parts[0]); err != nil {
 					return
 				} else {
@@ -630,7 +630,7 @@ func parseSweep(sweep string, count int) (placeholder string, sequence []int) {
 			}
 		} else if len(parts) == 3 {
 			if len(parts[0]) == 0 {
-				// Format: placeholder{-begin-end[,step]}
+				// Format: placeholder{-begin-end[:step]}
 				if b, err := strconv.Atoi("-" + parts[1]); err != nil {
 					return
 				} else {
@@ -642,7 +642,7 @@ func parseSweep(sweep string, count int) (placeholder string, sequence []int) {
 					end = e
 				}
 			} else if len(parts[1]) == 0 {
-				// Format: placeholder{begin--end[,step]}
+				// Format: placeholder{begin--end[:step]}
 				if b, err := strconv.Atoi(parts[0]); err != nil {
 					return
 				} else {
@@ -657,7 +657,7 @@ func parseSweep(sweep string, count int) (placeholder string, sequence []int) {
 				return
 			}
 		} else if len(parts) == 4 {
-			// Format: placeholder{-begin--end[,step]}
+			// Format: placeholder{-begin--end[:step]}
 			if len(parts[0]) == 0 || len(parts[2]) == 0 {
 				if b, err := strconv.Atoi("-" + parts[1]); err != nil {
 					return
@@ -677,7 +677,7 @@ func parseSweep(sweep string, count int) (placeholder string, sequence []int) {
 		}
 		placeholder = sweep[0:index]
 	}
-	if step == 0 {
+	if !stepParsed {
 		if begin < end {
 			step = 1
 		}
