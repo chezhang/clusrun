@@ -672,6 +672,8 @@ The substance of clusrun installation is to copy the setup package to a node and
     ```
     </details>
 
+<details><summary>clus node</summary>
+
 #### Manage nodes in cluster by command `clus node`
 
 - Show usage
@@ -1331,6 +1333,10 @@ The substance of clusrun installation is to copy the setup package to a node and
     root@vmss-ubun000000:~#
     ```
     </details>
+
+</details>
+
+<details><summary>clus run</summary>
 
 #### Run command in cluster by command `clus run`
 
@@ -2414,6 +2420,10 @@ The substance of clusrun installation is to copy the setup package to a node and
     ```
     </details>
 
+</details>
+
+<details><summary>clus job</summary>
+
 #### Manage jobs in cluster by command `clus job`
 
 - Show usage
@@ -3033,6 +3043,8 @@ The substance of clusrun installation is to copy the setup package to a node and
     ```
     </details>
 
+</details>
+
 ### Server executable `clusnode` or `clusnode.exe`
 
 - Show usage
@@ -3142,6 +3154,10 @@ The substance of clusrun installation is to copy the setup package to a node and
     root@vmss-ubun000000:~#
     ```
     </details>
+
+</details>
+
+<details><summary>clusnode start</summary>
 
 #### Start node by command `clusnode start`
 
@@ -3557,6 +3573,10 @@ The substance of clusrun installation is to copy the setup package to a node and
     ```
     </details>
 
+</details>
+
+<details><summary>clusnode config</summary>
+
 #### Configure node by command `clusnode config`
 
 - Show usage
@@ -3899,6 +3919,8 @@ The substance of clusrun installation is to copy the setup package to a node and
     root@vmss-ubun000000:~#
     ```
     </details>
+
+</details>
 
 ## Issues and solutions
 
