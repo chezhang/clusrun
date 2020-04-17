@@ -5,7 +5,7 @@
 headnodes="localhost"
 port=50505
 location="/usr/local/clusrun"
-setup_url="https://github.com/chezhang/clusrun/releases/download/v0.2.0/setup.tar.gz"
+setup_url="https://github.com/chezhang/clusrun/releases/download/v0.2.latest/setup.tar.gz"
 reinstall=false
 uninstall=false
 while getopts h:l:s:ru option; do
