@@ -1,10 +1,7 @@
-clus
-clus.exe
-clus.exe~
-clusnode
-clusnode.exe
-clusnode.exe~
-clusnode.exe.*
+clus/clus
+clus/clus.*
+clusnode/clusnode
+clusnode/clusnode.*
 .vscode
 release/*
 !release/build.ps1
