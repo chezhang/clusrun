@@ -100,14 +100,16 @@ func start(args []string) {
 	// Setup log file
 	if *log_file == default_log_file_label {
 		if err := os.MkdirAll(default_log_dir, 0644); err != nil {
-			LogFatality("Failed to create log dir: %v", err)
+			fmt.Printf("Failed to create log dir: %v", err)
+			os.Exit(1)
 		}
 		file_name := fmt.Sprintf("%v.%v", FileNameFormatHost(NodeHost), time.Now().Format("20060102150405.log"))
 		*log_file = filepath.Join(default_log_dir, file_name)
 	}
 	f, err := os.OpenFile(*log_file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
-		LogFatality("Failed to open log file: %v", err)
+		fmt.Printf("Failed to open log file: %v", err)
+		os.Exit(1)
 	}
 	defer f.Close()
 	log.SetOutput(f)
