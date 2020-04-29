@@ -4,7 +4,7 @@ A simple tool to run commands in a cluster, inspired by the [clusrun](https://do
 
 ## Components
 
-![components](images/components.png)
+<img src="images/components.png" width="650">
 
 - The executable `clusnode` or `clusnode.exe`
 
@@ -476,7 +476,7 @@ The substance of clusrun installation is to copy the setup package to a node and
         9. Upgrade VMSS instances to the latest model to apply the extension change
         10. Add `Custom Script Extension` again and set `Arguments` to update or uninstall clusrun (`-reinstall` or `-uninstall` for Windows, `-r` or `-u` for Linux)
 
-#### Run clusrun manually
+#### Start clusrun manually
 
 - Start clusrun on physical or virtual machine
 
@@ -3936,13 +3936,18 @@ The substance of clusrun installation is to copy the setup package to a node and
 
 - Headnode can not be connected locally by `clus`
 
+    <details><summary>Example</summary>
+
     ```Bash
     root@ubuntu1804:~# clus node
     Can not connect: context deadline exceeded
     Please ensure the headnode localhost:50505 is started and accessible
     ```
+    </details>
 
 - Headnode can be connected from other node
+
+    <details><summary>Example</summary>
 
     ```PowerShell
     PS C:\Program Files\clusrun> .\clus.exe node -headnode ubuntu1804
@@ -3952,8 +3957,11 @@ The substance of clusrun installation is to copy the setup package to a node and
     -----------------------
     Node count: 1001
     ```
+    </details>
 
 - Failure to ping localhost or other node from headnode
+
+    <details><summary>Example</summary>
 
     ```Bash
     root@ubuntu1804:~# ping localhost
@@ -3962,10 +3970,13 @@ The substance of clusrun installation is to copy the setup package to a node and
     ping: sendmsg: Invalid argument
     ...
     ```
+    </details>
 
 #### Solution
 
 - Increase ARP cache limit, referenced to [Huang Huang 的博客](https://mozillazg.com/2017/10/linux-a-way-to-fix-haproxy-network-connection-timeout-ping-sendmsg-invalid-argument-socket-errno-110-connection-timed-out)
+
+    <details><summary>Example</summary>
 
     ```Bash
     root@ubuntu1804:~# sysctl -a | grep net.ipv4.neigh.default.gc_thresh
@@ -3983,6 +3994,7 @@ The substance of clusrun installation is to copy the setup package to a node and
     -----------------------
     Node count: 1001
     ```
+    </details>
 
 ### Open files limit
 
@@ -3996,6 +4008,8 @@ The substance of clusrun installation is to copy the setup package to a node and
 
 - Client fails to dump output files with error `too many open files` 
 
+    <details><summary>Example</summary>
+
     ```Bash
     root@vmss-ubun000000:~# clus run -dump hostname
     Job 65 started on 908 nodes in cluster localhost:50505.
@@ -4008,10 +4022,13 @@ The substance of clusrun installation is to copy the setup package to a node and
     Failed to create output file: open /root/clus.run.20200415121609.040071600/95BF4307DCDB(VMSS-UBUN000010.60010).err: too many open files
     root@vmss-ubun000000:~#
     ```
+    </details>
 
 #### Solution
 
 - Increase open files limit
+
+    <details><summary>Example</summary>
 
     ```Bash
     root@vmss-ubun000000:~# ulimit -n
@@ -4039,3 +4056,4 @@ The substance of clusrun installation is to copy the setup package to a node and
     Output is dumped to /root/clus.run.20200415121820.093956800
     root@vmss-ubun000000:~#
     ```
+    </details>
