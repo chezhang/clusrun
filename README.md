@@ -4,7 +4,7 @@ A simple tool to run commands in a cluster, inspired by the [clusrun](https://do
 
 ## Components
 
-<img src="images/components.png" width="650">
+<img src="images/components.png" width="750">
 
 - The executable `clusnode` or `clusnode.exe`
 
