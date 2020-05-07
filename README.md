@@ -313,10 +313,10 @@ The substance of clusrun installation is to copy the setup package to a node and
 
     - via PowerShell
 
-        1. Create a VMSS on Azure
+        1. Create a [VMSS](https://docs.microsoft.com/en-us/azure/virtual-machine-scale-sets/overview) on Azure
         2. Optionally, create a VM in the same subnet as the headnode
-        3. Install [Azure PowerShell](https://docs.microsoft.com/en-us/powershell/azure/install-az-ps?view=azps-3.4.0) module if it is not installed yet
-        4. Login and select corresponding subscription in PowerShell
+        3. Install [Azure PowerShell](https://docs.microsoft.com/en-us/powershell/azure/install-az-ps) module if it is not installed yet
+        4. [Sign in](https://docs.microsoft.com/en-us/powershell/module/az.accounts/connect-azaccount) Azure account and [select](https://docs.microsoft.com/en-us/powershell/module/az.accounts/set-azcontext) corresponding subscription in PowerShell
         5. Download and run [vmss.ps1](https://github.com/chezhang/clusrun/releases/download/v0.2.0/vmss.ps1) to install clusrun as a VMSS extension. Specify the node names of headnodes, to which the clusrun client should connect, when running the script, or the first instance in the VMSS will be used as a headnode
 
             <details><summary>Example</summary>
@@ -470,7 +470,7 @@ The substance of clusrun installation is to copy the setup package to a node and
         3. Open `Extensions` page in `Settings` of the VMSS and click `Add`
         4. Select `Custom Script Extension` and click `Create`
         5. Download setup script from [Releases](https://github.com/chezhang/clusrun/releases) (`setup.ps1` for Windows, `setup.sh` for Linux)
-        6. Set `Script file` in `Install extension` page to the downloaded setup script
+        6. Click `Browse` in `Install extension` page, select or create a storage account and upload the setup script to a container in it, then select the setup script as the `Script file`
         7. Set `Arguments` to specify the headnode(s) (`-headnode(s) "<headnode(s)>"` for Windows, `-h "<headnodes>"` for Linux)
         8. Click `OK` to install clusrun to the VMSS as extension
         9. Upgrade VMSS instances to the latest model to apply the extension change
@@ -3921,6 +3921,90 @@ The substance of clusrun installation is to copy the setup package to a node and
     </details>
 
 </details>
+
+## Comparison and performance
+
+### Latency
+
+Measure the average time in client to run command `hostname` on nodes.
+
+| Approach | Latency (1 Windows VM) | Latency (100 Windows VMs) | Latency (500 Windows VMs) | Latency (1000 Windows VMs) | Latency (1500 Windows VMs) | Latency (1 Linux VM) | Latency (100 Linux VMs) | Latency (350 Linux VMs) | Latency (1000 Linux VMs) |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| clusrun (Windows headnode) | 0.2s | 0.4s | 1.6s | 3.7s | 5.8s | 0.1s | 0.3s | 1.3s | 3.5s |
+| clusrun (Linux headnode) | 0.1s | 0.2s | 10.6s* | 11.5s* | 18.5s* | 10ms | 50ms | 5.3s* | 11.1s* |
+| [HPC Pack clusrun](https://docs.microsoft.com/en-us/powershell/high-performance-computing/clusrun) | 3.8s | 6.9s | 11.1s | - | - | 4s | 6.1s | 10s | - |
+| [Azure VMSS Run Command via Azure CLI (Windows)](https://docs.microsoft.com/en-us/cli/azure/vmss/run-command?view=azure-cli-latest) | 159s | 45m | - | - | - | 67s | 19m | - | - |
+| [Azure VMSS Run Command via Azure CLI (Linux)](https://docs.microsoft.com/en-us/cli/azure/vmss/run-command?view=azure-cli-latest) | 152s | 30m | - | - | - | 62s | 13m | - | - |
+| [Azure VMSS Run Command via PowerShell](https://docs.microsoft.com/en-us/powershell/module/azurerm.compute/invoke-azurermvmssvmruncommand?view=azurermps-6.13.0) | 155s | N/A | N/A | N/A | N/A | 64s | N/A | N/A | N/A |
+| [Azure VM Run Command via Azure portal](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/run-command) | 40s | N/A | N/A | N/A | N/A | 34s | N/A | N/A | N/A |
+
+![chart-latency](images/clusrun-latency.png)
+
+### Throughput
+
+Start several jobs with command `hostname` from client in parallel and measure the total count of commands executed in certain time.
+
+#### Environments
+
+- VM Size: Standard_D4s_v3
+- VM Disk: Standard SSD
+- Widnows VM OS: Windows Server 2019 Datacenter
+- Linux VM OS: Ubuntu Server 18.04 LTS
+- Clusrun headnode role configs
+    - "store output": false
+    - "mark node lost after no heartbeat for seconds": 20
+    - "max job count": 150
+
+#### Data
+
+| Approach | Throughput (commands per second) |
+| --- | --- |
+| HPC Pack clusrun (1 Windows headnode + 100 Windows compute nodes) | 76 |
+| HPC Pack parametric sweep job (1 Windows headnode + 100 Windows compute nodes * 1 subscribed cores) | 158 |
+| HPC Pack parametric sweep job (1 Windows headnode + 100 Windows compute nodes * 2 subscribed cores) | 212 |
+| HPC Pack parametric sweep job (1 Windows headnode + 100 Windows compute nodes * 4 cores) | 263 |
+| HPC Pack parametric sweep job (1 Windows headnode + 100 Windows compute nodes * 8 subscribed cores) | 285 |
+| HPC Pack parametric sweep job (1 Windows headnode + 100 Windows compute nodes * 16 subscribed cores) | 259 |
+| HPC Pack clusrun (1 Windows headnode + 100 Linux compute nodes) | 55 |
+| HPC Pack parametric sweep job (1 Windows headnode + 100 Linux compute nodes * 1 subscribed cores) | 117 |
+| HPC Pack parametric sweep job (1 Windows headnode + 100 Linux compute nodes * 2 subscribed cores) | 142 |
+| HPC Pack parametric sweep job (1 Windows headnode + 100 Linux compute nodes * 4 cores) | 180 |
+| HPC Pack parametric sweep job (1 Windows headnode + 100 Linux compute nodes * 8 subscribed cores) | 200 |
+| HPC Pack parametric sweep job (1 Windows headnode + 100 Linux compute nodes * 16 subscribed cores) | 120 |
+| clusrun (1 Windows headnode + 84 Windows VMs) | 768 |
+| clusrun (2 Windows headnodes + 84 Windows VMs | 1344 |
+| clusrun (4 Windows headnodes + 84 Windows VMs | 2389 |
+| clusrun (8 Windows headnodes + 84 Windows VMs | 3909 |
+| clusrun (16 Windows headnodes + 84 Windows VMs | 4527 |
+| clusrun (1 Windows headnode + 84 Linux VMs) | 768 |
+| clusrun (2 Windows headnodes + 84 Linux VMs) | 1344 |
+| clusrun (4 Windows headnodes + 84 Linux VMs) | 2688 |
+| clusrun (8 Windows headnodes + 84 Linux VMs) | 4779 |
+| clusrun (16 Windows headnodes + 84 Linux VMs) | 8602 |
+| clusrun (1 Linux headnode + 84 Windows VMs) | 1075 |
+| clusrun (2 Linux headnodes + 84 Windows VMs | 1792 |
+| clusrun (4 Linux headnodes + 84 Windows VMs | 3584 |
+| clusrun (8 Linux headnodes + 84 Windows VMs | 3909 |
+| clusrun (16 Linux headnodes + 84 Windows VMs | 4527 |
+| clusrun (1 Linux headnode + 84 Linux VMs) | 1536 |
+| clusrun (2 Linux headnodes + 84 Linux VMs | 2688 |
+| clusrun (4 Linux headnodes + 84 Linux VMs | 5376 |
+| clusrun (8 Linux headnodes + 84 Linux VMs | 9557 |
+| clusrun (16 Linux headnodes + 84 Linux VMs | 19114 |
+| clusrun (1 Windows headnode + 84 Linux VMs * 10 containers) | 1117 |
+| clusrun (2 Windows headnodes + 84 Linux VMs * 10 containers) | 1490 |
+| clusrun (4 Windows headnodes + 84 Linux VMs * 10 containers) | 2234 |
+| clusrun (8 Windows headnodes + 84 Linux VMs * 10 containers) | 4469 |
+| clusrun (16 Windows headnodes + 84 Linux VMs * 10 containers) | 10726 |
+| clusrun (1 Linux headnode + 84 Linux VMs * 10 containers) | 1467 |
+| clusrun (2 Linux headnodes + 84 Linux VMs * 10 containers) | 3300 |
+| clusrun (4 Linux headnodes + 84 Linux VMs * 10 containers) | 7542 |
+| clusrun (8 Linux headnodes + 84 Linux VMs * 10 containers) | 9600 |
+| clusrun (16 Linux headnodes + 84 Linux VMs * 10 containers) | 21120 |
+
+![chart-throughput-1](images/clusrun-throughput-1.png)
+
+![chart-throughput-2](images/clusrun-throughput-2.png)
 
 ## Issues and solutions
 
