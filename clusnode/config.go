@@ -62,7 +62,7 @@ var (
 	}
 	Config_Headnode_StoreOutput = ConfigItem{
 		Name:  "store output",
-		Value: true,
+		Value: false,
 	}
 	Config_LogGoId = ConfigItem{
 		Name:  "add go id in logs",
