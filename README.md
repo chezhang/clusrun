@@ -3972,25 +3972,25 @@ Start several jobs with command `hostname` from client in parallel and measure t
 | HPC Pack parametric sweep job (1 Windows headnode + 100 Linux compute nodes * 8 subscribed cores) | 200 |
 | HPC Pack parametric sweep job (1 Windows headnode + 100 Linux compute nodes * 16 subscribed cores) | 120 |
 | clusrun (1 Windows headnode + 84 Windows VMs) | 768 |
-| clusrun (2 Windows headnodes + 84 Windows VMs | 1344 |
-| clusrun (4 Windows headnodes + 84 Windows VMs | 2389 |
-| clusrun (8 Windows headnodes + 84 Windows VMs | 3909 |
-| clusrun (16 Windows headnodes + 84 Windows VMs | 4527 |
+| clusrun (2 Windows headnodes + 84 Windows VMs) | 1344 |
+| clusrun (4 Windows headnodes + 84 Windows VMs) | 2389 |
+| clusrun (8 Windows headnodes + 84 Windows VMs) | 3909 |
+| clusrun (16 Windows headnodes + 84 Windows VMs) | 4527 |
 | clusrun (1 Windows headnode + 84 Linux VMs) | 768 |
 | clusrun (2 Windows headnodes + 84 Linux VMs) | 1344 |
 | clusrun (4 Windows headnodes + 84 Linux VMs) | 2688 |
 | clusrun (8 Windows headnodes + 84 Linux VMs) | 4779 |
 | clusrun (16 Windows headnodes + 84 Linux VMs) | 8602 |
 | clusrun (1 Linux headnode + 84 Windows VMs) | 1075 |
-| clusrun (2 Linux headnodes + 84 Windows VMs | 1792 |
-| clusrun (4 Linux headnodes + 84 Windows VMs | 3584 |
-| clusrun (8 Linux headnodes + 84 Windows VMs | 3909 |
-| clusrun (16 Linux headnodes + 84 Windows VMs | 4527 |
+| clusrun (2 Linux headnodes + 84 Windows VMs) | 1792 |
+| clusrun (4 Linux headnodes + 84 Windows VMs) | 3584 |
+| clusrun (8 Linux headnodes + 84 Windows VMs) | 3909 |
+| clusrun (16 Linux headnodes + 84 Windows VMs) | 4527 |
 | clusrun (1 Linux headnode + 84 Linux VMs) | 1536 |
-| clusrun (2 Linux headnodes + 84 Linux VMs | 2688 |
-| clusrun (4 Linux headnodes + 84 Linux VMs | 5376 |
-| clusrun (8 Linux headnodes + 84 Linux VMs | 9557 |
-| clusrun (16 Linux headnodes + 84 Linux VMs | 19114 |
+| clusrun (2 Linux headnodes + 84 Linux VMs) | 2688 |
+| clusrun (4 Linux headnodes + 84 Linux VMs) | 5376 |
+| clusrun (8 Linux headnodes + 84 Linux VMs) | 9557 |
+| clusrun (16 Linux headnodes + 84 Linux VMs) | 19114 |
 | clusrun (1 Windows headnode + 84 Linux VMs * 10 containers) | 1117 |
 | clusrun (2 Windows headnodes + 84 Linux VMs * 10 containers) | 1490 |
 | clusrun (4 Windows headnodes + 84 Linux VMs * 10 containers) | 2234 |
