@@ -100,6 +100,7 @@ message Job {
   repeated string specified_nodes = 10;
   repeated string node_groups = 11;
   string node_pattern = 12;
+  string progress = 13;
 }
 
 message GetJobsReply {

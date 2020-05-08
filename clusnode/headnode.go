@@ -23,7 +23,7 @@ var (
 	reportedTime   sync.Map
 	validateNumber sync.Map
 	NodeGroups     sync.Map
-	// TODO: Jobs  sync.Map
+	Jobs           sync.Map
 )
 
 type jobOnNode struct {
@@ -130,6 +130,24 @@ func (s *headnode_server) GetJobs(ctx context.Context, in *pb.GetJobsRequest) (*
 			jobs = append(jobs, &loaded_jobs[i])
 		}
 	}
+	for _, job := range jobs {
+		done, all := 0, len(job.Nodes)
+		if job.State == pb.JobState_Running {
+			if job_on_nodes, ok := Jobs.Load(int(job.Id)); !ok {
+				continue
+			} else {
+				job_on_nodes.(*sync.Map).Range(func(k, v interface{}) bool {
+					if v.(jobOnNode).state > pb.JobState_Running {
+						done += 1
+					}
+					return true
+				})
+			}
+		} else if job.State > pb.JobState_Running {
+			done = all
+		}
+		job.Progress = fmt.Sprintf("%v/%v", done, all)
+	}
 	LogInfo("GetJobs result:\n%v", jobs)
 	return &pb.GetJobsReply{Jobs: jobs}, nil
 }
@@ -189,6 +207,7 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	UpdateJobState(id, pb.JobState_Created, pb.JobState_Dispatching)
 	wg := sync.WaitGroup{}
 	var job_on_nodes sync.Map
+	Jobs.Store(id, &job_on_nodes)
 	for i, node := range nodes {
 		wg.Add(1)
 		c := command
@@ -215,6 +234,7 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	} else {
 		UpdateFinishedJob(id)
 	}
+	Jobs.Delete(id)
 	return nil
 }
 
