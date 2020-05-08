@@ -16,6 +16,8 @@ syntax = "proto3";
 
 package clusrun;
 
+option go_package = "protobuf;clusrun";
+
 service Headnode {
   rpc Heartbeat (HeartbeatRequest) returns (Empty) {}
   rpc GetNodes (GetNodesRequest) returns (GetNodesReply) {}
