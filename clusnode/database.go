@@ -72,7 +72,7 @@ func InitDatabase() {
 			if id, err := strconv.Atoi(job_id); err != nil || !f.IsDir() {
 				LogFatality("Unexpected database item %v in %v", job_id, db_outputDir)
 			} else if _, ok := jobs_id[int32(id)]; !ok {
-				cleanupOutputDir(id)
+				cleanupOutputDir(int32(id))
 			}
 		}
 	}
@@ -85,7 +85,7 @@ func InitDatabase() {
 	}
 }
 
-func CreateNewJob(command string, sweep, pattern string, groups, specifiedNodes, nodes []string) (int, error) {
+func CreateNewJob(command string, sweep, pattern string, groups, specifiedNodes, nodes []string) (int32, error) {
 	// Add new job in job list
 	db_jobsLock.Lock()
 	defer db_jobsLock.Unlock()
@@ -93,18 +93,18 @@ func CreateNewJob(command string, sweep, pattern string, groups, specifiedNodes,
 	if err != nil {
 		return -1, err
 	}
-	last_id := 0
+	var last_id int32 = 0
 	if len(jobs) > 0 {
 		last_job := jobs[len(jobs)-1]
-		last_id = int(last_job.Id)
+		last_id = last_job.Id
 	}
-	var olds []int
+	var olds []int32
 	if jobs, olds, err = cleanupOldJobs(jobs); err != nil {
 		return -1, err
 	}
 	new_id := last_id + 1
 	new_job := pb.Job{
-		Id:         int32(new_id),
+		Id:         new_id,
 		Command:    command,
 		CreateTime: time.Now().Unix(),
 		State:      pb.JobState_Created,
@@ -140,17 +140,17 @@ func CreateNewJob(command string, sweep, pattern string, groups, specifiedNodes,
 	return new_id, nil
 }
 
-func cleanupOutputDir(job_id int) {
+func cleanupOutputDir(job_id int32) {
 	LogInfo("Clean up output dir of job %v", job_id)
 	if err := os.RemoveAll(getOutputDir(job_id)); err != nil {
 		LogWarning("Failed to cleanup output dir of job %v: %v", job_id, err)
 	}
 }
 
-func cleanupOldJobs(jobs []pb.Job) ([]pb.Job, []int, error) {
+func cleanupOldJobs(jobs []pb.Job) ([]pb.Job, []int32, error) {
 	max_job_count := Config_Headnode_MaxJobCount.GetInt()
-	active := []pb.Job{}
-	to_clean := []int{}
+	var active []pb.Job
+	var to_clean []int32
 	for remain := len(jobs) - max_job_count + 1; remain > 0; {
 		if len(jobs) == 0 {
 			message := fmt.Sprintf("Job count reaches the capacity %v and all %v jobs are active", max_job_count, len(active))
@@ -159,7 +159,7 @@ func cleanupOldJobs(jobs []pb.Job) ([]pb.Job, []int, error) {
 		if isActiveState(jobs[0].State) {
 			active = append(active, jobs[0])
 		} else {
-			to_clean = append(to_clean, int(jobs[0].Id))
+			to_clean = append(to_clean, jobs[0].Id)
 			remain--
 		}
 		jobs = jobs[1:]
@@ -196,7 +196,7 @@ func isActiveState(state pb.JobState) bool {
 	return state == pb.JobState_Dispatching || state == pb.JobState_Running || state == pb.JobState_Canceling
 }
 
-func UpdateJobState(id int, from, to pb.JobState) error {
+func UpdateJobState(id int32, from, to pb.JobState) error {
 	db_jobsLock.Lock()
 	defer db_jobsLock.Unlock()
 	jobs, err := LoadJobs()
@@ -204,7 +204,7 @@ func UpdateJobState(id int, from, to pb.JobState) error {
 		return err
 	}
 	for i := range jobs {
-		if int(jobs[i].Id) == id {
+		if jobs[i].Id == id {
 			if from == jobs[i].State {
 				jobs[i].State = to
 			} else {
@@ -221,7 +221,7 @@ func UpdateJobState(id int, from, to pb.JobState) error {
 	return nil
 }
 
-func UpdateFinishedJob(id int) {
+func UpdateFinishedJob(id int32) {
 	db_jobsLock.Lock()
 	defer db_jobsLock.Unlock()
 	jobs, err := LoadJobs()
@@ -230,7 +230,7 @@ func UpdateFinishedJob(id int) {
 		return
 	}
 	for i := range jobs {
-		if int(jobs[i].Id) == id {
+		if jobs[i].Id == id {
 			if jobs[i].State == pb.JobState_Running {
 				jobs[i].EndTime = time.Now().Unix()
 				jobs[i].State = pb.JobState_Finished
@@ -245,7 +245,7 @@ func UpdateFinishedJob(id int) {
 	LogInfo("Job %v finished", id)
 }
 
-func UpdateFailedJob(id int, exitCodes map[string]int32) {
+func UpdateFailedJob(id int32, exitCodes map[string]int32) {
 	db_jobsLock.Lock()
 	defer db_jobsLock.Unlock()
 	jobs, err := LoadJobs()
@@ -254,7 +254,7 @@ func UpdateFailedJob(id int, exitCodes map[string]int32) {
 		return
 	}
 	for i := range jobs {
-		if int(jobs[i].Id) == id {
+		if jobs[i].Id == id {
 			if jobs[i].State == pb.JobState_Running {
 				jobs[i].EndTime = time.Now().Unix()
 				jobs[i].State = pb.JobState_Failed
@@ -342,11 +342,11 @@ func CreateCommandFile(job_label, command string) (string, error) {
 	return file, nil
 }
 
-func getOutputDir(id int) string {
-	return filepath.Join(db_outputDir, strconv.Itoa(id))
+func getOutputDir(id int32) string {
+	return filepath.Join(db_outputDir, strconv.Itoa(int(id)))
 }
 
-func GetOutputFile(id int, node string) (string, string) {
+func GetOutputFile(id int32, node string) (string, string) {
 	file := filepath.Join(getOutputDir(id), FileNameFormatHost(node))
 	return file + ".out", file + ".err"
 }

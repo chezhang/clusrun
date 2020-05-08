@@ -133,7 +133,7 @@ func (s *headnode_server) GetJobs(ctx context.Context, in *pb.GetJobsRequest) (*
 	for _, job := range jobs {
 		done, all := 0, len(job.Nodes)
 		if job.State == pb.JobState_Running {
-			if job_on_nodes, ok := Jobs.Load(int(job.Id)); !ok {
+			if job_on_nodes, ok := Jobs.Load(job.Id); !ok {
 				continue
 			} else {
 				job_on_nodes.(*sync.Map).Range(func(k, v interface{}) bool {
@@ -198,7 +198,7 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 		LogError("Failed to create job: %v", err)
 		return err
 	}
-	if err := out.Send(&pb.StartClusJobReply{JobId: int32(id), Nodes: nodes}); err != nil {
+	if err := out.Send(&pb.StartClusJobReply{JobId: id, Nodes: nodes}); err != nil {
 		LogError("Failed to send job id of job %v to client: %v", id, err)
 		return err
 	}
@@ -439,7 +439,7 @@ func parseHost(display_name string) string {
 	}
 }
 
-func startJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb.Headnode_StartClusJobServer, wg *sync.WaitGroup, save_output bool) {
+func startJobOnNode(id int32, command, node string, job_on_nodes *sync.Map, out pb.Headnode_StartClusJobServer, wg *sync.WaitGroup, save_output bool) {
 	defer wg.Done()
 	LogInfo("Start job %v on node %v", id, node)
 
@@ -473,7 +473,7 @@ func startJobOnNode(id int, command, node string, job_on_nodes *sync.Map, out pb
 	defer cancel()
 
 	// Start job on clusnode
-	stream, err := c.StartJob(ctx, &pb.StartJobRequest{JobId: int32(id), Command: command, Headnode: NodeHost})
+	stream, err := c.StartJob(ctx, &pb.StartJobRequest{JobId: id, Command: command, Headnode: NodeHost})
 	if err != nil {
 		LogError("Failed to start job %v on node %v: %v", id, node, err)
 		job_on_nodes.Store(node, jobOnNode{state: pb.JobState_Failed})
