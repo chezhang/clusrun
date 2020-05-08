@@ -136,7 +136,7 @@ func (s *headnode_server) GetJobs(ctx context.Context, in *pb.GetJobsRequest) (*
 
 func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headnode_StartClusJobServer) error {
 	defer LogPanicBeforeExit()
-	command, nodes, pattern, groups, intersect, sweep :=
+	command, specifiedNodes, pattern, groups, intersect, sweep :=
 		in.GetCommand(), in.GetNodes(), in.GetPattern(), in.GetGroups(), in.GetGroupsIntersect(), in.GetSweep()
 	LogInfo("Creating new job with command: %v", command)
 
@@ -153,7 +153,7 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	}
 
 	// Get nodes
-	nodes, invalid_nodes := getValidNodes(nodes, pattern, groups, intersect)
+	nodes, invalid_nodes := getValidNodes(specifiedNodes, pattern, groups, intersect)
 	sort.Strings(nodes)
 	sort.Strings(invalid_nodes)
 	if len(invalid_nodes) > 0 {
@@ -175,7 +175,7 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	}
 
 	// Create job
-	id, err := CreateNewJob(command, sweep, nodes)
+	id, err := CreateNewJob(command, sweep, pattern, groups, specifiedNodes, nodes)
 	if err != nil {
 		LogError("Failed to create job: %v", err)
 		return err

@@ -6,12 +6,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"google.golang.org/grpc"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"google.golang.org/grpc"
 )
 
 const (
@@ -56,7 +57,7 @@ func Job(args []string) {
 		} else {
 			for _, job := range jobs {
 				fmt.Printf("Rerun job %v: ", job.Id)
-				RunJob(ParseHeadnode(*headnode), job.Command, job.Sweep, "", "", nil, job.Nodes, 0, 0, true, false)
+				RunJob(ParseHeadnode(*headnode), job.Command, job.Sweep, "", job.NodePattern, job.NodeGroups, job.SpecifiedNodes, 0, 0, true, false)
 			}
 		}
 		return
@@ -249,21 +250,30 @@ func jobPrintTable(jobs []*pb.Job) {
 }
 
 func jobPrintList(jobs []*pb.Job) {
-	item_id, item_state, item_nodes, item_createTime, item_endTime, item_failedNodes, item_cancelFailedNodes, item_sweep, item_command :=
-		"Id", "State", "Nodes", "Create Time", "End Time", "Failed Nodes", "Cancel Failed Nodes", "Sweep Parameter", "Command"
-	maxLength := MaxInt(len(item_id), len(item_state), len(item_nodes), len(item_createTime), len(item_endTime),
-		len(item_sweep), len(item_failedNodes), len(item_cancelFailedNodes), len(item_command))
+	item_id, item_state, item_createTime, item_endTime, item_nodePattern, item_nodeGroups, item_specifiedNodes, item_nodes, item_failedNodes, item_cancelFailedNodes, item_sweep, item_command :=
+		"Id", "State", "Create Time", "End Time", "Node Pattern", "Node Grouops", "Specified Nodes", "Nodes", "Failed Nodes", "Cancel Failed Nodes", "Sweep Parameter", "Command"
+	maxLength := MaxInt(len(item_id), len(item_state), len(item_createTime), len(item_endTime), len(item_sweep), len(item_nodePattern),
+		len(item_nodeGroups), len(item_specifiedNodes), len(item_nodes), len(item_failedNodes), len(item_cancelFailedNodes), len(item_command))
 	print := func(name string, value interface{}) {
 		fmt.Printf("%-*v : %v\n", maxLength, name, value)
 	}
 	for _, job := range jobs {
 		print(item_id, job.Id)
 		print(item_state, job.State)
-		print(item_nodes, strings.Join(job.Nodes, ", "))
 		print(item_createTime, time.Unix(job.CreateTime, 0))
 		if endTime := job.EndTime; endTime > 0 {
 			print(item_endTime, time.Unix(endTime, 0))
 		}
+		if nodePattern := job.NodePattern; len(nodePattern) > 0 {
+			print(item_nodePattern, nodePattern)
+		}
+		if nodeGroups := job.NodeGroups; len(nodeGroups) > 0 {
+			print(item_nodeGroups, strings.Join(nodeGroups, ", "))
+		}
+		if specifiedNodes := job.SpecifiedNodes; len(specifiedNodes) > 0 {
+			print(item_specifiedNodes, strings.Join(specifiedNodes, ", "))
+		}
+		print(item_nodes, strings.Join(job.Nodes, ", "))
 		if failedNodes := job.FailedNodes; len(failedNodes) > 0 {
 			nodes := make([]string, 0, len(failedNodes))
 			for node := range failedNodes {
