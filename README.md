@@ -6,30 +6,29 @@ A simple tool to run commands in a cluster, inspired by the [clusrun](https://do
 
 <img src="images/components.png" width="750">
 
-- The executable `clusnode` or `clusnode.exe`
+- The worker executable `clusnode` or `clusnode.exe`
 
     - headnode role
 
-        - receive config request from local client
+        - receive heartbeats from clusnode role of workers and send node validatoin requests
         - receive node or job request from client
-        - receive heartbeats from clusnodes and send node validatoin requests
-        - dispatch job request to clusnodes and redirect responses
-        - store job history locally
+        - receive config request from client role of worker
+        - dispatch job request to clusnode role of workers and redirect responses
+        - store jobs information, nodes information and configs locally
 
     - clusnode role
 
-        - receive node validation or job request from headnode
-        - send heartbeat to headnode
+        - send heartbeats to headnode role of workers and receive node validation requests 
+        - receive job requests from headnode role of workers
         - run command locally
 
     - client role
 
-        - configure headnode
-        - configure clusnode
+        - send config request to headnode role and clusnode role of worker
 
-- The executable `clus` or `clus.exe`
+- The client executable `clus` or `clus.exe`
 
-    - send node or job request to headnode and receive response
+    - send node or job request to headnode role of workers and receive response
     - display node or job information locally
 
 ## Deployment
@@ -3045,7 +3044,7 @@ The substance of clusrun installation is to copy the setup package to a node and
 
 </details>
 
-### Server executable `clusnode` or `clusnode.exe`
+### Worker executable `clusnode` or `clusnode.exe`
 
 - Show usage
 
