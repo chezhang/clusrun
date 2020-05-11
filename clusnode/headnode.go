@@ -155,8 +155,8 @@ func (s *headnode_server) GetJobs(ctx context.Context, in *pb.GetJobsRequest) (*
 
 func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headnode_StartClusJobServer) error {
 	defer LogPanicBeforeExit()
-	command, specifiedNodes, pattern, groups, intersect, sweep :=
-		in.GetCommand(), in.GetNodes(), in.GetPattern(), in.GetGroups(), in.GetGroupsIntersect(), in.GetSweep()
+	command, arguments, specifiedNodes, pattern, groups, intersect, sweep :=
+		in.GetCommand(), in.GetArguments(), in.GetNodes(), in.GetPattern(), in.GetGroups(), in.GetGroupsIntersect(), in.GetSweep()
 	LogInfo("Creating new job with command: %v", command)
 
 	// Validate groups
@@ -181,20 +181,29 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	}
 	if len(nodes) == 0 {
 		message := "No valid nodes to create job"
-		LogWarning(message)
+		LogWarning("%v", message)
 		return errors.New(message)
 	}
 
 	// Parse sweep
 	placeholder, sweepSequence := parseSweep(sweep, len(nodes))
 	if !strings.Contains(command, placeholder) {
-		msg := fmt.Sprintf("Sweep placeholder %v has wrong format or is not in command: %v", placeholder, command)
-		LogWarning(msg)
-		return errors.New(msg)
+		placeholder_in_args := false
+		for _, a := range arguments {
+			if strings.Contains(a, placeholder) {
+				placeholder_in_args = true
+				break
+			}
+		}
+		if !placeholder_in_args {
+			msg := fmt.Sprintf("Sweep placeholder %q has wrong format or is not in command and arguments", placeholder)
+			LogWarning("%v", msg)
+			return errors.New(msg)
+		}
 	}
 
 	// Create job
-	id, err := CreateNewJob(command, sweep, pattern, groups, specifiedNodes, nodes)
+	id, err := CreateNewJob(command, sweep, pattern, groups, specifiedNodes, nodes, arguments)
 	if err != nil {
 		LogError("Failed to create job: %v", err)
 		return err
@@ -212,10 +221,16 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	for i, node := range nodes {
 		wg.Add(1)
 		c := command
+		a := make([]string, len(arguments))
+		copy(a, arguments)
 		if len(sweep) > 0 {
-			c = strings.ReplaceAll(command, placeholder, strconv.Itoa(sweepSequence[i]))
+			s := strconv.Itoa(sweepSequence[i])
+			c = strings.ReplaceAll(command, placeholder, s)
+			for i, v := range arguments {
+				a[i] = strings.ReplaceAll(v, placeholder, s)
+			}
 		}
-		go startJobOnNode(id, c, node, &job_on_nodes, out, &wg, Config_Headnode_StoreOutput.GetBool())
+		go startJobOnNode(id, c, a, node, &job_on_nodes, out, &wg, Config_Headnode_StoreOutput.GetBool())
 	}
 	UpdateJobState(id, pb.JobState_Dispatching, pb.JobState_Running)
 	wg.Wait()
@@ -440,7 +455,7 @@ func parseHost(display_name string) string {
 	}
 }
 
-func startJobOnNode(id int32, command, node string, job_on_nodes *sync.Map, out pb.Headnode_StartClusJobServer, wg *sync.WaitGroup, save_output bool) {
+func startJobOnNode(id int32, command string, args []string, node string, job_on_nodes *sync.Map, out pb.Headnode_StartClusJobServer, wg *sync.WaitGroup, save_output bool) {
 	defer wg.Done()
 	LogInfo("Start job %v on node %v", id, node)
 
@@ -475,7 +490,7 @@ func startJobOnNode(id int32, command, node string, job_on_nodes *sync.Map, out 
 	defer cancel()
 
 	// Start job on clusnode
-	stream, err := c.StartJob(ctx, &pb.StartJobRequest{JobId: id, Command: command, Headnode: NodeHost})
+	stream, err := c.StartJob(ctx, &pb.StartJobRequest{JobId: id, Command: command, Arguments: args, Headnode: NodeHost})
 	if err != nil {
 		LogError("Failed to start job %v on node %v: %v", id, node, err)
 		job_on_nodes.Store(node, jobOnNode{state: pb.JobState_Failed})

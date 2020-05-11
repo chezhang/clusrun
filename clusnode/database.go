@@ -87,7 +87,7 @@ func InitDatabase() {
 	}
 }
 
-func CreateNewJob(command string, sweep, pattern string, groups, specifiedNodes, nodes []string) (int32, error) {
+func CreateNewJob(command string, sweep, pattern string, groups, specifiedNodes, nodes, args []string) (int32, error) {
 	// Add new job in job list
 	db_jobsLock.Lock()
 	defer db_jobsLock.Unlock()
@@ -106,23 +106,16 @@ func CreateNewJob(command string, sweep, pattern string, groups, specifiedNodes,
 	}
 	new_id := last_id + 1
 	new_job := pb.Job{
-		Id:         new_id,
-		Command:    command,
-		CreateTime: time.Now().Unix(),
-		State:      pb.JobState_Created,
-		Nodes:      nodes,
-	}
-	if len(sweep) > 0 {
-		new_job.Sweep = sweep
-	}
-	if len(specifiedNodes) > 0 {
-		new_job.SpecifiedNodes = specifiedNodes
-	}
-	if len(groups) > 0 {
-		new_job.NodeGroups = groups
-	}
-	if len(pattern) > 0 {
-		new_job.NodePattern = pattern
+		Id:             new_id,
+		Command:        command,
+		Sweep:          sweep,
+		Arguments:      args,
+		CreateTime:     time.Now().Unix(),
+		State:          pb.JobState_Created,
+		SpecifiedNodes: specifiedNodes,
+		NodePattern:    pattern,
+		NodeGroups:     groups,
+		Nodes:          nodes,
 	}
 	jobs = append(jobs, new_job)
 	if err := saveJobs(jobs); err != nil {
