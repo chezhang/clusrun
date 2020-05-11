@@ -99,17 +99,11 @@ func RunJob(headnode, command, sweep, output_dir, pattern string, groups, nodes 
 	dump := len(output_dir) > 0
 
 	// Setup connection
-	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
+	conn, cancel := ConnectHeadnode(headnode)
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, headnode, grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		fmt.Println("Can not connect:", err)
-		fmt.Printf("Please ensure the headnode %v is started and accessible.", headnode)
-		os.Exit(1)
-	}
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)
-	ctx, cancel = context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	// Potential grpc bug:
 	// 1. call cancel(): out.Send() on headnode get error code = Unavailable

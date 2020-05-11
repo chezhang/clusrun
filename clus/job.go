@@ -11,8 +11,6 @@ import (
 	"strconv"
 	"strings"
 	"time"
-
-	"google.golang.org/grpc"
 )
 
 const (
@@ -131,17 +129,11 @@ func parseJobIds(args []string) (job_ids map[int32]bool, err error) {
 
 func cancelJobs(headnode string, job_ids map[int32]bool) {
 	// Setup connection
-	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
+	conn, cancel := ConnectHeadnode(headnode)
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, headnode, grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		fmt.Println("Can not connect:", err)
-		fmt.Printf("Please ensure the headnode %v is started and accessible\n", headnode)
-		os.Exit(1)
-	}
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)
-	ctx, cancel = context.WithTimeout(context.Background(), ConnectTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
 
 	// Cancel jobs in the cluster
@@ -167,17 +159,11 @@ func cancelJobs(headnode string, job_ids map[int32]bool) {
 
 func getJobs(headnode string, ids map[int32]bool) []*pb.Job {
 	// Setup connection
-	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
+	conn, cancel := ConnectHeadnode(headnode)
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, headnode, grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		fmt.Println("Can not connect:", err)
-		fmt.Printf("Please ensure the headnode %v is started and accessible\n", headnode)
-		os.Exit(1)
-	}
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)
-	ctx, cancel = context.WithTimeout(context.Background(), ConnectTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
 
 	// Get jobs in the cluster

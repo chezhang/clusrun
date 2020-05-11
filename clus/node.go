@@ -5,7 +5,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"google.golang.org/grpc"
 	"os"
 	"sort"
 	"strings"
@@ -110,17 +109,11 @@ func getNodes(headnode, pattern, state, groups string, intersect bool) (nodes []
 	}
 
 	// Setup connection
-	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
+	conn, cancel := ConnectHeadnode(headnode)
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, headnode, grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		fmt.Println("Can not connect:", err)
-		fmt.Printf("Please ensure the headnode %v is started and accessible\n", headnode)
-		os.Exit(1)
-	}
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)
-	ctx, cancel = context.WithTimeout(context.Background(), ConnectTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
 
 	// Get nodes reporting to the headnode
@@ -282,17 +275,11 @@ func setNodeGroups(headnode, nodeGroups string, nodes []*pb.Node, remove bool) s
 	}
 
 	// Setup connection
-	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
+	conn, cancel := ConnectHeadnode(headnode)
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, headnode, grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		fmt.Println("Can not connect:", err)
-		fmt.Printf("Please ensure the headnode %v is started and accessible\n", headnode)
-		os.Exit(1)
-	}
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)
-	ctx, cancel = context.WithTimeout(context.Background(), ConnectTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 	defer cancel()
 
 	// Add or remove node groups for nodes

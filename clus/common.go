@@ -1,7 +1,10 @@
 package main
 
 import (
+	"context"
 	"fmt"
+	"google.golang.org/grpc"
+	"os"
 	"strings"
 	"time"
 )
@@ -51,4 +54,15 @@ func MaxInt(array ...int) int {
 		}
 	}
 	return max
+}
+
+func ConnectHeadnode(headnode string) (*grpc.ClientConn, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
+	conn, err := grpc.DialContext(ctx, headnode, grpc.WithInsecure(), grpc.WithBlock())
+	if err != nil {
+		fmt.Println("Can not connect:", err)
+		fmt.Printf("Please ensure the headnode %v is started and accessible.", headnode)
+		os.Exit(1)
+	}
+	return conn, cancel
 }
