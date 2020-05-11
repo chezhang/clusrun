@@ -110,11 +110,7 @@ func RunJob(headnode, command, sweep, output_dir, pattern string, groups, nodes,
 	// 3. set ctx = context.WithTimeout(context.Background(), 10 * time.Second): out.Send() on headnode get error code = Canceled
 
 	// Start job
-	var option grpc.CallOption = grpc.EmptyCallOption{}
-	if len(nodes) > 1 {
-		option = grpc.UseCompressor("gzip")
-	}
-	stream, err := c.StartClusJob(ctx, &pb.StartClusJobRequest{Command: command, Arguments: arguments, Sweep: sweep, Pattern: pattern, Groups: groups, GroupsIntersect: intersect, Nodes: nodes}, option)
+	stream, err := c.StartClusJob(ctx, &pb.StartClusJobRequest{Command: command, Arguments: arguments, Sweep: sweep, Pattern: pattern, Groups: groups, GroupsIntersect: intersect, Nodes: nodes}, grpc.UseCompressor("gzip"))
 	if err != nil {
 		fmt.Println("Failed to start job:", err)
 		os.Exit(1)
