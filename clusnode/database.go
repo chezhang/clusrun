@@ -43,7 +43,7 @@ func InitDatabase() {
 		LogFatality("Failed to create command dir for clusnode: %v", err)
 	}
 	if _, err := os.Stat(db_jobs); os.IsNotExist(err) {
-		if err = saveJobs([]pb.Job{}); err != nil {
+		if err = saveJobs([]*pb.Job{}); err != nil {
 			LogFatality("Failed to create database jobs file: %v", err)
 		}
 	} else {
@@ -53,12 +53,12 @@ func InitDatabase() {
 			LogFatality("Failed to load jobs: %v", err)
 		}
 		jobs_id := make(map[int32]bool, len(jobs))
-		for i := range jobs {
-			if isActiveState(jobs[i].State) {
-				jobs[i].State = pb.JobState_Canceling
+		for _, job := range jobs {
+			if isActiveState(job.State) {
+				job.State = pb.JobState_Canceling
 				// TODO: add job to cancel list
 			}
-			jobs_id[jobs[i].Id] = true
+			jobs_id[job.Id] = true
 		}
 		if err := saveJobs(jobs); err != nil {
 			LogFatality("Failed to save jobs: %v", err)
@@ -97,15 +97,14 @@ func CreateNewJob(command string, sweep, pattern string, groups, specifiedNodes,
 	}
 	var last_id int32 = 0
 	if len(jobs) > 0 {
-		last_job := jobs[len(jobs)-1]
-		last_id = last_job.Id
+		last_id = jobs[len(jobs)-1].Id
 	}
 	var olds []int32
 	if jobs, olds, err = cleanupOldJobs(jobs); err != nil {
 		return -1, err
 	}
 	new_id := last_id + 1
-	new_job := pb.Job{
+	new_job := &pb.Job{
 		Id:             new_id,
 		Command:        command,
 		Sweep:          sweep,
@@ -142,9 +141,9 @@ func cleanupOutputDir(job_id int32) {
 	}
 }
 
-func cleanupOldJobs(jobs []pb.Job) ([]pb.Job, []int32, error) {
+func cleanupOldJobs(jobs []*pb.Job) ([]*pb.Job, []int32, error) {
 	max_job_count := Config_Headnode_MaxJobCount.GetInt()
-	var active []pb.Job
+	var active []*pb.Job
 	var to_clean []int32
 	for remain := len(jobs) - max_job_count + 1; remain > 0; {
 		if len(jobs) == 0 {
@@ -165,7 +164,7 @@ func cleanupOldJobs(jobs []pb.Job) ([]pb.Job, []int32, error) {
 	return jobs, to_clean, nil
 }
 
-func saveJobs(jobs []pb.Job) error {
+func saveJobs(jobs []*pb.Job) error {
 	j, err := json.MarshalIndent(jobs, "", "    ")
 	if err != nil {
 		return err
@@ -184,7 +183,7 @@ func saveJobs(jobs []pb.Job) error {
 	return nil
 }
 
-func LoadJobs() ([]pb.Job, error) {
+func LoadJobs() ([]*pb.Job, error) {
 	b, err := ioutil.ReadFile(db_jobs)
 	if err != nil {
 		return nil, err
@@ -197,7 +196,7 @@ func LoadJobs() ([]pb.Job, error) {
 	if err != nil {
 		return nil, err
 	}
-	var jobs []pb.Job
+	var jobs []*pb.Job
 	if err = json.Unmarshal(j, &jobs); err != nil {
 		return nil, err
 	}
@@ -215,12 +214,12 @@ func UpdateJobState(id int32, from, to pb.JobState) error {
 	if err != nil {
 		return err
 	}
-	for i := range jobs {
-		if jobs[i].Id == id {
-			if from == jobs[i].State {
-				jobs[i].State = to
+	for _, job := range jobs {
+		if job.Id == id {
+			if from == job.State {
+				job.State = to
 			} else {
-				LogWarning("Skip changing job %v state from %v to %v (Current state: %v)", id, from, to, jobs[i].State)
+				LogWarning("Skip changing job %v state from %v to %v (Current state: %v)", id, from, to, job.State)
 				return nil
 			}
 			break
@@ -241,11 +240,11 @@ func UpdateFinishedJob(id int32) {
 		LogError("Failed to load jobs when finishing job %v: %v", id, err)
 		return
 	}
-	for i := range jobs {
-		if jobs[i].Id == id {
-			if jobs[i].State == pb.JobState_Running {
-				jobs[i].EndTime = time.Now().Unix()
-				jobs[i].State = pb.JobState_Finished
+	for _, job := range jobs {
+		if job.Id == id {
+			if job.State == pb.JobState_Running {
+				job.EndTime = time.Now().Unix()
+				job.State = pb.JobState_Finished
 			}
 			break
 		}
@@ -265,13 +264,13 @@ func UpdateFailedJob(id int32, exitCodes map[string]int32) {
 		LogError("Failed to load jobs when failing job %v: %v", id, err)
 		return
 	}
-	for i := range jobs {
-		if jobs[i].Id == id {
-			if jobs[i].State == pb.JobState_Running {
-				jobs[i].EndTime = time.Now().Unix()
-				jobs[i].State = pb.JobState_Failed
+	for _, job := range jobs {
+		if job.Id == id {
+			if job.State == pb.JobState_Running {
+				job.EndTime = time.Now().Unix()
+				job.State = pb.JobState_Failed
 			}
-			jobs[i].FailedNodes = exitCodes
+			job.FailedNodes = exitCodes
 			break
 		}
 	}
@@ -296,14 +295,14 @@ func CancelJobs(job_ids map[int32]bool) (map[int32]pb.JobState, map[int32][]stri
 	}
 	result := map[int32]pb.JobState{}
 	to_cancel := map[int32][]string{}
-	for i := range jobs {
-		id := jobs[i].Id
+	for _, job := range jobs {
+		id := job.Id
 		if _, ok := job_ids[id]; ok || cancel_all {
-			if isActiveState(jobs[i].State) {
-				jobs[i].State = pb.JobState_Canceling
-				to_cancel[id] = jobs[i].Nodes
+			if isActiveState(job.State) {
+				job.State = pb.JobState_Canceling
+				to_cancel[id] = job.Nodes
 			}
-			result[id] = jobs[i].State
+			result[id] = job.State
 		}
 	}
 	if err := saveJobs(jobs); err != nil {
@@ -320,14 +319,14 @@ func UpdateCancelledJob(id int32, cancel_failed_nodes []string) {
 		LogError("Failed to load jobs when cancelling job %v: %v", id, err)
 		return
 	}
-	for i := range jobs {
-		if jobs[i].Id == id {
-			jobs[i].EndTime = time.Now().Unix()
+	for _, job := range jobs {
+		if job.Id == id {
+			job.EndTime = time.Now().Unix()
 			if len(cancel_failed_nodes) == 0 {
-				jobs[i].State = pb.JobState_Canceled
+				job.State = pb.JobState_Canceled
 			} else {
-				jobs[i].State = pb.JobState_CancelFailed
-				jobs[i].CancelFailedNodes = cancel_failed_nodes
+				job.State = pb.JobState_CancelFailed
+				job.CancelFailedNodes = cancel_failed_nodes
 				LogWarning("Cancellation of job %v failed on nodes: %v", id, cancel_failed_nodes)
 			}
 			break
@@ -363,7 +362,7 @@ func GetOutputFile(id int32, node string) (string, string) {
 	return file + ".out", file + ".err"
 }
 
-func NormalizeJobIds(job_ids map[int32]bool, jobs []pb.Job) map[int32]bool {
+func NormalizeJobIds(job_ids map[int32]bool, jobs []*pb.Job) map[int32]bool {
 	var last_job_id int32
 	if len(jobs) > 0 {
 		last_job_id = jobs[len(jobs)-1].Id

@@ -128,7 +128,7 @@ func (s *headnode_server) GetJobs(ctx context.Context, in *pb.GetJobsRequest) (*
 	jobs := []*pb.Job{}
 	for i := range loaded_jobs {
 		if _, ok := job_ids[loaded_jobs[i].Id]; ok || get_all {
-			jobs = append(jobs, &loaded_jobs[i])
+			jobs = append(jobs, loaded_jobs[i])
 		}
 	}
 	for _, job := range jobs {
