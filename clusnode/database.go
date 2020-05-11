@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	pb "clusrun/protobuf"
+	"compress/gzip"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -41,7 +43,7 @@ func InitDatabase() {
 		LogFatality("Failed to create command dir for clusnode: %v", err)
 	}
 	if _, err := os.Stat(db_jobs); os.IsNotExist(err) {
-		if err = ioutil.WriteFile(db_jobs, []byte("[]"), 0644); err != nil {
+		if err = saveJobs([]pb.Job{}); err != nil {
 			LogFatality("Failed to create database jobs file: %v", err)
 		}
 	} else {
@@ -161,23 +163,40 @@ func cleanupOldJobs(jobs []pb.Job) ([]pb.Job, []int, error) {
 	return jobs, to_clean, nil
 }
 
-// TODO: Compress nodes
 func saveJobs(jobs []pb.Job) error {
-	if json_string, err := json.MarshalIndent(jobs, "", "    "); err != nil {
+	j, err := json.MarshalIndent(jobs, "", "    ")
+	if err != nil {
 		return err
-	} else if err := ioutil.WriteFile(db_jobs, json_string, 0644); err != nil {
+	}
+	var b bytes.Buffer
+	gz := gzip.NewWriter(&b)
+	if _, err := gz.Write(j); err != nil {
+		return err
+	}
+	if err := gz.Close(); err != nil {
+		return err
+	}
+	if err := ioutil.WriteFile(db_jobs, b.Bytes(), 0644); err != nil {
 		return err
 	}
 	return nil
 }
 
 func LoadJobs() ([]pb.Job, error) {
-	json_string, err := ioutil.ReadFile(db_jobs)
+	b, err := ioutil.ReadFile(db_jobs)
+	if err != nil {
+		return nil, err
+	}
+	r, err := gzip.NewReader(bytes.NewReader(b))
+	if err != nil {
+		return nil, err
+	}
+	j, err := ioutil.ReadAll(r)
 	if err != nil {
 		return nil, err
 	}
 	var jobs []pb.Job
-	if err = json.Unmarshal(json_string, &jobs); err != nil {
+	if err = json.Unmarshal(j, &jobs); err != nil {
 		return nil, err
 	}
 	return jobs, nil
