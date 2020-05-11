@@ -181,7 +181,7 @@ func getJobs(headnode string, ids map[int32]bool) []*pb.Job {
 	defer cancel()
 
 	// Get jobs in the cluster
-	reply, err := c.GetJobs(ctx, &pb.GetJobsRequest{JobIds: ids})
+	reply, err := c.GetJobs(ctx, &pb.GetJobsRequest{JobIds: ids}, grpc.UseCompressor("gzip"))
 	if err != nil {
 		fmt.Println("Can not get jobs:", err)
 		os.Exit(1)
