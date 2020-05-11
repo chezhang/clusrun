@@ -5,8 +5,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"google.golang.org/grpc"
-	"google.golang.org/grpc/status"
 	"io"
 	"io/ioutil"
 	"math"
@@ -16,6 +14,10 @@ import (
 	"sort"
 	"strings"
 	"time"
+
+	"google.golang.org/grpc"
+	_ "google.golang.org/grpc/encoding/gzip"
+	"google.golang.org/grpc/status"
 )
 
 func Run(args []string) {
@@ -115,7 +117,11 @@ func RunJob(headnode, command, sweep, output_dir, pattern string, groups, nodes 
 	// 3. set ctx = context.WithTimeout(context.Background(), 10 * time.Second): out.Send() on headnode get error code = Canceled
 
 	// Start job
-	stream, err := c.StartClusJob(ctx, &pb.StartClusJobRequest{Command: command, Sweep: sweep, Pattern: pattern, Groups: groups, GroupsIntersect: intersect, Nodes: nodes})
+	var option grpc.CallOption = grpc.EmptyCallOption{}
+	if len(nodes) > 1 {
+		option = grpc.UseCompressor("gzip")
+	}
+	stream, err := c.StartClusJob(ctx, &pb.StartClusJobRequest{Command: command, Sweep: sweep, Pattern: pattern, Groups: groups, GroupsIntersect: intersect, Nodes: nodes}, option)
 	if err != nil {
 		fmt.Println("Failed to start job:", err)
 		os.Exit(1)

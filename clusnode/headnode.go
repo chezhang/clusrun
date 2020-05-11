@@ -16,6 +16,7 @@ import (
 	"time"
 
 	grpc "google.golang.org/grpc"
+	_ "google.golang.org/grpc/encoding/gzip"
 )
 
 var (
