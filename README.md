@@ -308,7 +308,7 @@ The substance of clusrun installation is to copy the setup package to a node and
 
         </details>
 
-- Install, update and uninstall clusrun on Azure VMSS as a extension
+- Install, update and uninstall clusrun on Azure VMSS
 
     - via PowerShell
 
