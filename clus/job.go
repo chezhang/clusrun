@@ -6,12 +6,13 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"google.golang.org/grpc"
 	"os"
 	"sort"
 	"strconv"
 	"strings"
 	"time"
+
+	"google.golang.org/grpc"
 )
 
 const (
@@ -56,7 +57,7 @@ func Job(args []string) {
 		} else {
 			for _, job := range jobs {
 				fmt.Printf("Rerun job %v: ", job.Id)
-				RunJob(ParseHeadnode(*headnode), job.Command, job.Sweep, "", "", nil, job.Nodes, 0, 0, true, false)
+				RunJob(ParseHeadnode(*headnode), job.Command, job.Sweep, "", job.NodePattern, job.NodeGroups, job.SpecifiedNodes, 0, 0, true, false)
 			}
 		}
 		return
@@ -192,8 +193,8 @@ func getJobs(headnode string, ids map[int32]bool) []*pb.Job {
 func jobPrintTable(jobs []*pb.Job) {
 	if len(jobs) > 0 {
 		gap := 3
-		max_id_length, max_state_length, max_nodes_length, max_command_length := getJobTableMaxLength(jobs)
-		header_id, header_state, header_nodes, header_command := "Id", "State", "Nodes", "Command"
+		max_id_length, max_state_length, max_progress_length, max_command_length := getJobTableMaxLength(jobs)
+		header_id, header_state, header_progress, header_command := "Id", "State", "Progress", "Command"
 		min_command_length := len(header_command) + gap
 		if max_id_length < len(header_id) {
 			max_id_length = len(header_id)
@@ -201,15 +202,15 @@ func jobPrintTable(jobs []*pb.Job) {
 		if max_state_length < len(header_state) {
 			max_state_length = len(header_state)
 		}
-		if max_nodes_length < len(header_nodes) {
-			max_nodes_length = len(header_nodes)
+		if max_progress_length < len(header_progress) {
+			max_progress_length = len(header_progress)
 		}
-		id_width, state_width, nodes_width := max_id_length+gap, max_state_length+gap, max_nodes_length+gap
+		id_width, state_width, progress_width := max_id_length+gap, max_state_length+gap, max_progress_length+gap
 		line_length := DefaultLineLength
 		if ConsoleWidth > 0 {
 			line_length = ConsoleWidth - 1
 		}
-		remain_length := line_length - id_width - state_width - nodes_width
+		remain_length := line_length - id_width - state_width - progress_width
 		if remain_length < min_command_length {
 			remain_length = min_command_length
 		}
@@ -223,12 +224,12 @@ func jobPrintTable(jobs []*pb.Job) {
 		fmt.Printf("%-*s%-*s%-*s%-*s\n",
 			id_width, header_id,
 			state_width, header_state,
-			nodes_width, header_nodes,
+			progress_width, header_progress,
 			command_width, header_command)
 		fmt.Printf("%-*s%-*s%-*s%-*s\n",
 			id_width, strings.Repeat("-", max_id_length),
 			state_width, strings.Repeat("-", max_state_length),
-			nodes_width, strings.Repeat("-", max_nodes_length),
+			progress_width, strings.Repeat("-", max_progress_length),
 			command_width, strings.Repeat("-", max_command_length))
 		for _, job := range jobs {
 			command := job.Command
@@ -240,30 +241,42 @@ func jobPrintTable(jobs []*pb.Job) {
 			fmt.Printf("%-*v%-*v%-*v%-*v\n",
 				id_width, job.Id,
 				state_width, job.State,
-				nodes_width, len(job.Nodes),
+				progress_width, job.Progress,
 				command_width, command)
 		}
-		fmt.Println(strings.Repeat("-", id_width+state_width+nodes_width+command_width))
+		fmt.Println(strings.Repeat("-", id_width+state_width+progress_width+command_width))
 	}
 	fmt.Println("Job count:", len(jobs))
 }
 
 func jobPrintList(jobs []*pb.Job) {
-	item_id, item_state, item_nodes, item_createTime, item_endTime, item_failedNodes, item_cancelFailedNodes, item_sweep, item_command :=
-		"Id", "State", "Nodes", "Create Time", "End Time", "Failed Nodes", "Cancel Failed Nodes", "Sweep Parameter", "Command"
-	maxLength := MaxInt(len(item_id), len(item_state), len(item_nodes), len(item_createTime), len(item_endTime),
-		len(item_sweep), len(item_failedNodes), len(item_cancelFailedNodes), len(item_command))
+	item_id, item_state, item_progress, item_createTime, item_endTime, item_nodePattern, item_nodeGroups, item_specifiedNodes, item_nodes, item_failedNodes, item_cancelFailedNodes, item_sweep, item_command :=
+		"Id", "State", "Progress", "Create Time", "End Time", "Node Pattern", "Node Grouops", "Specified Nodes", "Nodes", "Failed Nodes", "Cancel Failed Nodes", "Sweep Parameter", "Command"
+	maxLength := MaxInt(len(item_id), len(item_state), len(item_progress), len(item_createTime), len(item_endTime), len(item_sweep), len(item_nodePattern),
+		len(item_nodeGroups), len(item_specifiedNodes), len(item_nodes), len(item_failedNodes), len(item_cancelFailedNodes), len(item_command))
 	print := func(name string, value interface{}) {
 		fmt.Printf("%-*v : %v\n", maxLength, name, value)
 	}
 	for _, job := range jobs {
 		print(item_id, job.Id)
 		print(item_state, job.State)
-		print(item_nodes, strings.Join(job.Nodes, ", "))
+		if progress := job.Progress; len(progress) > 0 {
+			print(item_progress, progress)
+		}
 		print(item_createTime, time.Unix(job.CreateTime, 0))
 		if endTime := job.EndTime; endTime > 0 {
 			print(item_endTime, time.Unix(endTime, 0))
 		}
+		if nodePattern := job.NodePattern; len(nodePattern) > 0 {
+			print(item_nodePattern, nodePattern)
+		}
+		if nodeGroups := job.NodeGroups; len(nodeGroups) > 0 {
+			print(item_nodeGroups, strings.Join(nodeGroups, ", "))
+		}
+		if specifiedNodes := job.SpecifiedNodes; len(specifiedNodes) > 0 {
+			print(item_specifiedNodes, strings.Join(specifiedNodes, ", "))
+		}
+		print(item_nodes, strings.Join(job.Nodes, ", "))
 		if failedNodes := job.FailedNodes; len(failedNodes) > 0 {
 			nodes := make([]string, 0, len(failedNodes))
 			for node := range failedNodes {
@@ -289,7 +302,7 @@ func jobPrintList(jobs []*pb.Job) {
 	fmt.Println("Job count:", len(jobs))
 }
 
-func getJobTableMaxLength(jobs []*pb.Job) (id, state, nodes, command int) {
+func getJobTableMaxLength(jobs []*pb.Job) (id, state, progress, command int) {
 	for _, job := range jobs {
 		if length := len(strconv.Itoa(int(job.Id))); length > id {
 			id = length
@@ -297,8 +310,8 @@ func getJobTableMaxLength(jobs []*pb.Job) (id, state, nodes, command int) {
 		if length := len(job.State.String()); length > state {
 			state = length
 		}
-		if length := len(strconv.Itoa(len(job.Nodes))); length > nodes {
-			nodes = length
+		if length := len(job.Progress); length > progress {
+			progress = length
 		}
 		job.Command = strings.ReplaceAll(strings.ReplaceAll(job.Command, "\r", `\r`), "\n", `\n`)
 		if length := len(job.Command); length > command {

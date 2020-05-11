@@ -97,6 +97,10 @@ message Job {
   JobState state = 7;
   map<string, int32> failed_nodes = 8;
   repeated string cancel_failed_nodes = 9;
+  repeated string specified_nodes = 10;
+  repeated string node_groups = 11;
+  string node_pattern = 12;
+  string progress = 13;
 }
 
 message GetJobsReply {
