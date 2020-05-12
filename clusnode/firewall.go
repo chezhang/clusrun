@@ -20,7 +20,6 @@ func SetupFireWall() {
 			output, _ := exec.Command(cmd[0], cmd[1:]...).CombinedOutput()
 			LogInfo("Command output: %s", output)
 		}
-	} else {
-		// TODO
 	}
+	// TODO: test on some Linux distros
 }

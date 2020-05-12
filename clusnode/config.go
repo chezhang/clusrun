@@ -320,7 +320,7 @@ func (c *ConfigItem) GetInt() (value int) {
 }
 
 func convertType(from interface{}, t reflect.Kind) (to interface{}, err error) {
-	err = errors.New(fmt.Sprintf("Failed to parse %v as type %v", from, t))
+	err = fmt.Errorf("Failed to parse %v as type %v", from, t)
 	switch v := from.(type) {
 	case bool:
 		switch t {

@@ -5,8 +5,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"github.com/judwhite/go-svc/svc"
-	"google.golang.org/grpc"
 	"log"
 	"net/http"
 	_ "net/http/pprof"
@@ -15,6 +13,9 @@ import (
 	"runtime"
 	"strings"
 	"time"
+
+	"github.com/judwhite/go-svc/svc"
+	"google.golang.org/grpc"
 )
 
 const (
@@ -88,7 +89,7 @@ func start(args []string) {
 	host := fs.String("host", localHost, "specify the host address of this headnode and clusnode")
 	log_file := fs.String("log-file", default_log_file_label, "specify the file for logging")
 	pprof := fs.Bool("pprof", false, fmt.Sprintf("start HTTP server on %v for pprof", pprofServer))
-	fs.Parse(args)
+	_ = fs.Parse(args)
 
 	// Setup the host address of this node
 	var err error
@@ -140,13 +141,13 @@ func start(args []string) {
 			if _, _, _, err := ParseHostAddress(headnode); err != nil {
 				LogFatality("Failed to parse headnode host address: %v", err)
 			} else {
-				AddHeadnode(headnode)
+				_, _ = AddHeadnode(headnode)
 			}
 		}
 	}
 	if connected, connecting := GetHeadnodes(); len(connected)+len(connecting) == 0 {
 		LogInfo("Adding default headnode: %v", NodeHost)
-		AddHeadnode(NodeHost)
+		_, _ = AddHeadnode(NodeHost)
 	}
 	SaveNodeConfigs()
 
@@ -176,7 +177,7 @@ func config(args []string) {
 	case "del":
 		mode = pb.SetHeadnodesMode_Remove
 	case "get":
-		fs.Parse(args[1:])
+		_ = fs.Parse(args[1:])
 		setOrGetConfig(*node, false, nil, 0, nil, nil)
 		return
 	default:
@@ -192,7 +193,7 @@ func config(args []string) {
 		max_job_count = fs.String("max-job-count", "", "set the count of jobs to keep in history on this headnode")
 		interval = fs.String("heartbeat-interval", "", "set the heartbeat interval of this clusnode")
 	}
-	fs.Parse(args[1:])
+	_ = fs.Parse(args[1:])
 	if fs.NFlag() == 0 {
 		fs.PrintDefaults()
 		return

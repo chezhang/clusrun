@@ -168,7 +168,7 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	}
 	if len(invalid_groups) > 0 {
 		LogWarning("Invalid node groups to create job: %v", invalid_groups)
-		return errors.New(fmt.Sprintf("Invalid groups: %v", invalid_groups))
+		return fmt.Errorf("Invalid groups: %v", invalid_groups)
 	}
 
 	// Get nodes
@@ -177,7 +177,7 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	sort.Strings(invalid_nodes)
 	if len(invalid_nodes) > 0 {
 		LogWarning("Invalid nodes to create job: %v", invalid_nodes)
-		return errors.New(fmt.Sprintf("Invalid nodes: %v", invalid_nodes))
+		return fmt.Errorf("Invalid nodes: %v", invalid_nodes)
 	}
 	if len(nodes) == 0 {
 		message := "No valid nodes to create job"
@@ -214,7 +214,9 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 	}
 
 	// Start job on nodes in the cluster
-	UpdateJobState(id, pb.JobState_Created, pb.JobState_Dispatching)
+	if err := UpdateJobState(id, pb.JobState_Created, pb.JobState_Dispatching); err != nil {
+		LogError("Failed to update state of job %v to %v: %v", id, pb.JobState_Dispatching, err)
+	}
 	wg := sync.WaitGroup{}
 	var job_on_nodes sync.Map
 	Jobs.Store(id, &job_on_nodes)
@@ -232,7 +234,9 @@ func (s *headnode_server) StartClusJob(in *pb.StartClusJobRequest, out pb.Headno
 		}
 		go startJobOnNode(id, c, a, node, &job_on_nodes, out, &wg, Config_Headnode_StoreOutput.GetBool())
 	}
-	UpdateJobState(id, pb.JobState_Dispatching, pb.JobState_Running)
+	if err := UpdateJobState(id, pb.JobState_Dispatching, pb.JobState_Running); err != nil {
+		LogError("Failed to update state of job %v to %v: %v", id, pb.JobState_Running, err)
+	}
 	wg.Wait()
 
 	// Update job in DB
