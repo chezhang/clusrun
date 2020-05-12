@@ -26,7 +26,7 @@ func Node(args []string) {
 	// monitor := fs.Bool("monitor", false, "keep refreshing the node information")
 	// purge := fs.Bool("purge", false, "purge the lost nodes in headnode")
 	// reverse := fs.Bool("reverse", false, "reverse the order when displaying")
-	fs.Parse(args)
+	_ = fs.Parse(args)
 	if len(fs.Args()) > 0 {
 		// TODO: query nodes info
 		fmt.Println("Invalid parameter:", strings.Join(fs.Args(), " "))
@@ -104,7 +104,7 @@ func getNodes(headnode, pattern, state, groups string, intersect bool) (nodes []
 		}
 	}
 	node_groups = make([]string, 0, len(node_groups_set))
-	for k, _ := range node_groups_set {
+	for k := range node_groups_set {
 		node_groups = append(node_groups, k)
 	}
 
@@ -444,5 +444,4 @@ func sortNodes(nodes []*pb.Node, order_by string) {
 		}
 		return false
 	})
-	return
 }

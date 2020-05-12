@@ -3,7 +3,6 @@ package main
 import (
 	pb "clusrun/protobuf"
 	"context"
-	"errors"
 	"flag"
 	"fmt"
 	"os"
@@ -11,6 +10,8 @@ import (
 	"strconv"
 	"strings"
 	"time"
+
+	"google.golang.org/grpc"
 )
 
 const (
@@ -26,7 +27,7 @@ func Job(args []string) {
 	// output := fs.Bool("output", false, "get output of jobs")
 	// nodes := fs.String("nodes", "", "get info or output of jobs on certain nodes")
 	// state := fs.String("state", "", "get jobs in certain state")
-	fs.Parse(args)
+	_ = fs.Parse(args)
 	no_job_args := len(fs.Args()) == 0
 	job_ids, err := parseJobIds(fs.Args())
 	if err != nil {
@@ -103,13 +104,13 @@ func parseJobIds(args []string) (job_ids map[int32]bool, err error) {
 				begin = parts[0]
 				end = parts[1]
 			} else {
-				err = errors.New(fmt.Sprintf("Invalid range: %q", id))
+				err = fmt.Errorf("Invalid range: %q", id)
 				return
 			}
 			ids := make([]int, 2)
 			for i, val := range []string{begin, end} {
 				if job_id, e := strconv.Atoi(strings.TrimSpace(val)); e != nil || job_id == 0 || inverse && job_id < 0 {
-					err = errors.New(fmt.Sprintf("Invalid id: %q", val))
+					err = fmt.Errorf("Invalid id: %q", val)
 					return
 				} else {
 					ids[i] = job_id

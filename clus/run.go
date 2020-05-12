@@ -35,7 +35,7 @@ func Run(args []string) {
 	background := fs.Bool("background", false, "run command without printing output")
 	// pick := fs.Int("pick", 0, "pick certain number of nodes to run, default 0 means pick all nodes")
 	// merge := fs.Bool("merge", false, "specify if merge outputs with the same content for different nodes")
-	fs.Parse(args)
+	_ = fs.Parse(args)
 	command := strings.Join(fs.Args(), " ")
 	var arguments []string
 	if len(*script) > 0 {
@@ -220,7 +220,7 @@ func RunJob(headnode, command, sweep, output_dir, pattern string, groups, nodes,
 						state = fmt.Sprintf("failed with exit code %v", exit_code)
 						failed_nodes = append(failed_nodes, node)
 					}
-					duration := time.Now().Sub(start_time)
+					duration := time.Since(start_time)
 					job_time = append(job_time, duration)
 					fmt.Printf("[%v/%v] Command %v on node %v in %v.\n", len(finished_nodes), len(all_nodes), state, node, duration)
 				} else {
