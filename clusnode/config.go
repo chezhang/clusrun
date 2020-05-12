@@ -4,13 +4,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/juju/fslock"
 	"io/ioutil"
 	"os"
 	"reflect"
 	"strconv"
 	"strings"
 	"time"
+
+	"github.com/juju/fslock"
 )
 
 const (
@@ -171,13 +172,16 @@ func LoadNodeConfigs() {
 		return
 	}
 
-	if clusnode_config, ok := node_config[Config_Clusnode].(map[string]interface{}); ok {
-		if headnodes, ok := clusnode_config[Config_Clusnode_Headnodes_Name].([]interface{}); ok {
+	if clusnode_config, ok := node_config[Config_Clusnode].(map[string]interface{}); !ok {
+		LogWarning("Incorrect config format for clusnode role of node %v, use default configs", NodeHost)
+	} else {
+		if headnodes, ok := clusnode_config[Config_Clusnode_Headnodes_Name].([]interface{}); !ok {
+			LogWarning("Incorrect headnodes config format for clusnode role, skip")
+		} else {
 			LogInfo("Adding loaded headnodes: %v", headnodes)
 			for _, headnode := range headnodes {
 				if h, ok := headnode.(string); !ok {
-					LogError("Headnode %v is not string format", headnode)
-					h = fmt.Sprintf("%v", headnode)
+					LogWarning("Headnode %v is not string format, skip", headnode)
 				} else if _, err := AddHeadnode(h); err != nil {
 					LogError("Failed to add headnode: %v", err)
 				}
@@ -186,16 +190,18 @@ func LoadNodeConfigs() {
 		for _, config := range configs_clusnode {
 			if value, ok := clusnode_config[config.Name]; ok {
 				if err := config.Set(value); err != nil {
-					LogError("Failed to set %q for clusnode to %v: %v", config.Name, value, err)
+					LogError("Failed to set %q for clusnode role to %v: %v", config.Name, value, err)
 				}
 			}
 		}
 	}
 	if headnode_config, ok := node_config[Config_Headnode].(map[string]interface{}); ok {
+		LogWarning("Incorrect config format for headnode role of node %v, use default configs", NodeHost)
+	} else {
 		for _, config := range configs_headnode {
 			if value, ok := headnode_config[config.Name]; ok {
 				if err := config.Set(value); err != nil {
-					LogError("Failed to set %q for headnode to %v: %v", config.Name, value, err)
+					LogError("Failed to set %q for headnode role to %v: %v", config.Name, value, err)
 				}
 			}
 		}
