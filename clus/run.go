@@ -24,6 +24,7 @@ func Run(args []string) {
 	fs := flag.NewFlagSet("clus run options", flag.ExitOnError)
 	headnode := fs.String("headnode", LocalHost, "specify the headnode to connect")
 	script := fs.String("script", "", "specify the script file containing commands to run")
+	// files := fs.String("files", "", "specify the files or directories, which will be copied to the working directory on each node")
 	dump := fs.Bool("dump", false, "save the output to file")
 	nodes := fs.String("nodes", "", "specify certain nodes to run the command")
 	pattern := fs.String("pattern", "", "specify nodes matching a certain regular expression pattern to run the command")

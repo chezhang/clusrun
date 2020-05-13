@@ -24,6 +24,7 @@ func Job(args []string) {
 	format := fs.String("format", "", "format the jobs in table or list")
 	cancel := fs.Bool("cancel", false, "cancel jobs")
 	rerun := fs.Bool("rerun", false, "rerun jobs")
+	retry := fs.Bool("retry", false, "retry jobs on the failed nodes")
 	// output := fs.Bool("output", false, "get output of jobs")
 	// nodes := fs.String("nodes", "", "get info or output of jobs on certain nodes")
 	// state := fs.String("state", "", "get jobs in certain state")
@@ -49,7 +50,9 @@ func Job(args []string) {
 	}
 	jobs := getJobs(ParseHeadnode(*headnode), job_ids)
 	if *rerun {
-		if no_job_args {
+		if *retry {
+			fmt.Println("Conflict options: -rerun and -retry")
+		} else if no_job_args {
 			fmt.Println("Please specify jobs to rerun.")
 		} else if len(jobs) == 0 {
 			fmt.Println("No jobs to rerun.")
@@ -57,6 +60,30 @@ func Job(args []string) {
 			for _, job := range jobs {
 				fmt.Printf("Rerun job %v: ", job.Id)
 				RunJob(ParseHeadnode(*headnode), job.Command, job.Sweep, "", job.NodePattern, job.NodeGroups, job.SpecifiedNodes, job.Arguments, 0, 0, true, false)
+			}
+		}
+		return
+	}
+	if *retry {
+		if no_job_args {
+			fmt.Println("Please specify jobs to retry.")
+		} else if len(jobs) == 0 {
+			fmt.Println("No jobs to retry.")
+		} else {
+			for _, job := range jobs {
+				fmt.Printf("Retry job %v: ", job.Id)
+				// TODO when needed: retry same job in server rather than create new job
+				if len(job.FailedNodes) == 0 {
+					fmt.Println("No failed nodes.")
+				} else if len(job.Sweep) > 0 {
+					fmt.Println("Can not retry job with sweep option.")
+				} else {
+					failedNodes := make([]string, 0, len(job.FailedNodes))
+					for node := range job.FailedNodes {
+						failedNodes = append(failedNodes, node)
+					}
+					RunJob(ParseHeadnode(*headnode), job.Command, "", "", "", nil, failedNodes, job.Arguments, 0, 0, true, false)
+				}
 			}
 		}
 		return
