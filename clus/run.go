@@ -34,6 +34,7 @@ func Run(args []string) {
 	prompt := fs.Int("prompt", 1, "specify the number of nodes, the output of which will be displayed promptly")
 	sweep := fs.String("sweep", "", `perform parametric sweep by replacing specified placeholder string in the command on each node to sequence number (in specified range and step optionally) with format "placeholder[{begin[-end][:step]}]"`)
 	background := fs.Bool("background", false, "run command without printing output")
+	name := fs.String("name", "", "specify the job name")
 	// pick := fs.Int("pick", 0, "pick certain number of nodes to run, default 0 means pick all nodes")
 	// merge := fs.Bool("merge", false, "specify if merge outputs with the same content for different nodes")
 	_ = fs.Parse(args)
@@ -50,7 +51,7 @@ func Run(args []string) {
 	if *dump {
 		output_dir = createOutputDir()
 	}
-	RunJob(ParseHeadnode(*headnode), command, *sweep, output_dir, *pattern, parseNodesOrGroups(*groups), parseNodesOrGroups(*nodes), arguments, *cache, *prompt, *background, *groups_intersect)
+	RunJob(ParseHeadnode(*headnode), command, *sweep, output_dir, *pattern, *name, parseNodesOrGroups(*groups), parseNodesOrGroups(*nodes), arguments, *cache, *prompt, *background, *groups_intersect)
 }
 
 func displayRunUsage(fs *flag.FlagSet) {
@@ -95,7 +96,7 @@ func createOutputDir() string {
 	return output_dir
 }
 
-func RunJob(headnode, command, sweep, output_dir, pattern string, groups, nodes, arguments []string, cache_size, prompt int, background, intersect bool) {
+func RunJob(headnode, command, sweep, output_dir, pattern, name string, groups, nodes, arguments []string, cache_size, prompt int, background, intersect bool) {
 	dump := len(output_dir) > 0
 
 	// Setup connection
@@ -111,7 +112,7 @@ func RunJob(headnode, command, sweep, output_dir, pattern string, groups, nodes,
 	// 3. set ctx = context.WithTimeout(context.Background(), 10 * time.Second): out.Send() on headnode get error code = Canceled
 
 	// Start job
-	stream, err := c.StartClusJob(ctx, &pb.StartClusJobRequest{Command: command, Arguments: arguments, Sweep: sweep, Pattern: pattern, Groups: groups, GroupsIntersect: intersect, Nodes: nodes}, grpc.UseCompressor("gzip"))
+	stream, err := c.StartClusJob(ctx, &pb.StartClusJobRequest{Command: command, Arguments: arguments, Sweep: sweep, Pattern: pattern, Groups: groups, GroupsIntersect: intersect, Nodes: nodes, Name: name}, grpc.UseCompressor("gzip"))
 	if err != nil {
 		fmt.Println("Failed to start job:", err)
 		os.Exit(1)
@@ -126,7 +127,7 @@ func RunJob(headnode, command, sweep, output_dir, pattern string, groups, nodes,
 	} else {
 		all_nodes = output.GetNodes()
 		job_id = output.GetJobId()
-		fmt.Printf("Job %v started on %v nodes in cluster %v.\n", job_id, len(all_nodes), headnode)
+		fmt.Printf("Job %v %q started on %v nodes in cluster %v.\n", job_id, name, len(all_nodes), headnode)
 		if dump {
 			fmt.Println("Dumping output to", output_dir)
 		} else if background {

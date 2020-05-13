@@ -102,6 +102,7 @@ message Job {
   string node_pattern = 12;
   string progress = 13;
   repeated string arguments = 14;
+  string name = 15;
 }
 
 message GetJobsReply {
@@ -127,6 +128,7 @@ message StartClusJobRequest {
   bool groups_intersect = 5;
   string sweep = 6;
   repeated string arguments = 7;
+  string name = 8;
 }
 
 message StartClusJobReply {

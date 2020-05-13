@@ -58,8 +58,10 @@ func Job(args []string) {
 			fmt.Println("No jobs to rerun.")
 		} else {
 			for _, job := range jobs {
-				fmt.Printf("Rerun job %v: ", job.Id)
-				RunJob(ParseHeadnode(*headnode), job.Command, job.Sweep, "", job.NodePattern, job.NodeGroups, job.SpecifiedNodes, job.Arguments, 0, 0, true, false)
+				lebal := fmt.Sprintf("Rerun job %v", job.Id)
+				fmt.Printf("%v: ", lebal)
+				name := fmt.Sprintf("[%v] %v", lebal, job.Name)
+				RunJob(ParseHeadnode(*headnode), job.Command, job.Sweep, "", job.NodePattern, name, job.NodeGroups, job.SpecifiedNodes, job.Arguments, 0, 0, true, false)
 			}
 		}
 		return
@@ -71,7 +73,9 @@ func Job(args []string) {
 			fmt.Println("No jobs to retry.")
 		} else {
 			for _, job := range jobs {
-				fmt.Printf("Retry job %v: ", job.Id)
+				lebal := fmt.Sprintf("Retry job %v", job.Id)
+				fmt.Printf("%v: ", lebal)
+				name := fmt.Sprintf("[%v] %v", lebal, job.Name)
 				// TODO when needed: retry same job in server rather than create new job
 				if len(job.FailedNodes) == 0 {
 					fmt.Println("No failed nodes.")
@@ -82,7 +86,7 @@ func Job(args []string) {
 					for node := range job.FailedNodes {
 						failedNodes = append(failedNodes, node)
 					}
-					RunJob(ParseHeadnode(*headnode), job.Command, "", "", "", nil, failedNodes, job.Arguments, 0, 0, true, false)
+					RunJob(ParseHeadnode(*headnode), job.Command, "", "", "", name, nil, failedNodes, job.Arguments, 0, 0, true, false)
 				}
 			}
 		}
@@ -207,13 +211,20 @@ func getJobs(headnode string, ids map[int32]bool) []*pb.Job {
 func jobPrintTable(jobs []*pb.Job) {
 	if len(jobs) > 0 {
 		gap := 3
+		min_console_width_for_name := 80
 		min_console_width_for_create_time := 120
 		min_console_width_for_end_time := 150
-		max_id_length, max_state_length, max_progress_length, max_create_time_length, max_end_time_length, max_command_length := getJobTableMaxLength(jobs)
-		header_id, header_state, header_progress, header_create_time, header_end_time, header_command := "Id", "State", "Progress", "Create Time", "End Time", "Command"
+		max_id_length, max_name_length, max_state_length, max_progress_length, max_create_time_length, max_end_time_length, max_command_length := getJobTableMaxLength(jobs)
+		header_id, header_name, header_state, header_progress, header_create_time, header_end_time, header_command := "Id", "Name", "State", "Progress", "Create Time", "End Time", "Command"
+		if max_name_length > 20 {
+			max_name_length = 20
+		}
 		min_command_length := len(header_command) + gap
 		if max_id_length < len(header_id) {
 			max_id_length = len(header_id)
+		}
+		if max_name_length < len(header_name) {
+			max_name_length = len(header_name)
 		}
 		if max_state_length < len(header_state) {
 			max_state_length = len(header_state)
@@ -227,7 +238,8 @@ func jobPrintTable(jobs []*pb.Job) {
 		if max_end_time_length < len(header_end_time) {
 			max_end_time_length = len(header_end_time)
 		}
-		id_width, state_width, progress_width, create_time_width, end_time_width := max_id_length+gap, max_state_length+gap, max_progress_length+gap, max_create_time_length+gap, max_end_time_length+gap
+		id_width, name_width, state_width, progress_width, create_time_width, end_time_width :=
+			max_id_length+gap, max_name_length+gap, max_state_length+gap, max_progress_length+gap, max_create_time_length+gap, max_end_time_length+gap
 		line_length := DefaultLineLength
 		if ConsoleWidth > 0 {
 			line_length = ConsoleWidth - 1
@@ -247,6 +259,13 @@ func jobPrintTable(jobs []*pb.Job) {
 			max_end_time_length = 0
 			end_time_width = 0
 		}
+		if line_length > min_console_width_for_name {
+			remain_length -= name_width
+		} else {
+			header_name = ""
+			max_name_length = 0
+			name_width = 0
+		}
 		if remain_length < min_command_length {
 			remain_length = min_command_length
 		}
@@ -257,24 +276,34 @@ func jobPrintTable(jobs []*pb.Job) {
 			max_command_length = len(header_command)
 		}
 		command_width := max_command_length
-		fmt.Printf("%-*s%-*s%-*s%-*s%-*s%-*s\n",
+		fmt.Printf("%-*s%-*s%-*s%-*s%-*s%-*s%-*s\n",
 			id_width, header_id,
+			name_width, header_name,
 			state_width, header_state,
 			progress_width, header_progress,
 			create_time_width, header_create_time,
 			end_time_width, header_end_time,
 			command_width, header_command)
-		fmt.Printf("%-*s%-*s%-*s%-*s%-*s%-*s\n",
+		fmt.Printf("%-*s%-*s%-*s%-*s%-*s%-*s%-*s\n",
 			id_width, strings.Repeat("-", max_id_length),
+			name_width, strings.Repeat("-", max_name_length),
 			state_width, strings.Repeat("-", max_state_length),
 			progress_width, strings.Repeat("-", max_progress_length),
 			create_time_width, strings.Repeat("-", max_create_time_length),
 			end_time_width, strings.Repeat("-", max_end_time_length),
 			command_width, strings.Repeat("-", max_command_length))
 		for _, job := range jobs {
+			padding := "..."
+			name := ""
+			if name_width > 0 {
+				name = job.Name
+			}
+			if len(name) > max_name_length {
+				name = name[:max_name_length-len(padding)]
+				name += padding
+			}
 			command := job.Command
 			if len(command) > max_command_length {
-				padding := "..."
 				command = command[:max_command_length-len(padding)]
 				command += padding
 			}
@@ -286,29 +315,31 @@ func jobPrintTable(jobs []*pb.Job) {
 			if end_time_width > 0 && job.EndTime != 0 {
 				end_time = fmt.Sprintf("%v", time.Unix(job.EndTime, 0))
 			}
-			fmt.Printf("%-*v%-*v%-*v%-*v%-*v%-*v\n",
+			fmt.Printf("%-*v%-*v%-*v%-*v%-*v%-*v%-*v\n",
 				id_width, job.Id,
+				name_width, name,
 				state_width, job.State,
 				progress_width, job.Progress,
 				create_time_width, create_time,
 				end_time_width, end_time,
 				command_width, command)
 		}
-		fmt.Println(strings.Repeat("-", id_width+state_width+progress_width+create_time_width+end_time_width+command_width))
+		fmt.Println(strings.Repeat("-", id_width+name_width+state_width+progress_width+create_time_width+end_time_width+command_width))
 	}
 	fmt.Println("Job count:", len(jobs))
 }
 
 func jobPrintList(jobs []*pb.Job) {
-	item_id, item_state, item_progress, item_createTime, item_endTime, item_nodePattern, item_nodeGroups, item_specifiedNodes, item_nodes, item_failedNodes, item_cancelFailedNodes, item_sweep, item_arguments, item_command :=
-		"Id", "State", "Progress", "Create Time", "End Time", "Node Pattern", "Node Grouops", "Specified Nodes", "Nodes", "Failed Nodes", "Cancel Failed Nodes", "Sweep Parameter", "Arguments", "Command"
-	maxLength := MaxInt(len(item_id), len(item_state), len(item_progress), len(item_createTime), len(item_endTime), len(item_sweep), len(item_nodePattern),
+	item_id, item_name, item_state, item_progress, item_createTime, item_endTime, item_nodePattern, item_nodeGroups, item_specifiedNodes, item_nodes, item_failedNodes, item_cancelFailedNodes, item_sweep, item_arguments, item_command :=
+		"Id", "Name", "State", "Progress", "Create Time", "End Time", "Node Pattern", "Node Grouops", "Specified Nodes", "Nodes", "Failed Nodes", "Cancel Failed Nodes", "Sweep Parameter", "Arguments", "Command"
+	maxLength := MaxInt(len(item_id), len(item_name), len(item_state), len(item_progress), len(item_createTime), len(item_endTime), len(item_sweep), len(item_nodePattern),
 		len(item_nodeGroups), len(item_specifiedNodes), len(item_nodes), len(item_failedNodes), len(item_cancelFailedNodes), len(item_arguments), len(item_command))
 	print := func(name string, value interface{}) {
 		fmt.Printf("%-*v : %v\n", maxLength, name, value)
 	}
 	for _, job := range jobs {
 		print(item_id, job.Id)
+		print(item_name, job.Name)
 		print(item_state, job.State)
 		if progress := job.Progress; len(progress) > 0 {
 			print(item_progress, progress)
@@ -355,11 +386,14 @@ func jobPrintList(jobs []*pb.Job) {
 	fmt.Println("Job count:", len(jobs))
 }
 
-func getJobTableMaxLength(jobs []*pb.Job) (id, state, progress, create_time, end_time, command int) {
+func getJobTableMaxLength(jobs []*pb.Job) (id, name, state, progress, create_time, end_time, command int) {
 	create_time = len(fmt.Sprintf("%v", time.Unix(0, 0)))
 	for _, job := range jobs {
 		if length := len(strconv.Itoa(int(job.Id))); length > id {
 			id = length
+		}
+		if length := len(job.Name); length > id {
+			name = length
 		}
 		if length := len(job.State.String()); length > state {
 			state = length
