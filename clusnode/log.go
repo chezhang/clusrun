@@ -23,6 +23,7 @@ func LogError(format string, v ...interface{}) {
 func LogFatality(format string, v ...interface{}) {
 	LogError(format, v...)
 	fmt.Printf(format, v...)
+	fmt.Println()
 	os.Exit(1)
 }
 
