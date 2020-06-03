@@ -3927,6 +3927,10 @@ The substance of clusrun installation is to copy the setup package to a node and
 
 Measure the average time in client to run command `hostname` on nodes.
 
+![chart-latency](images/clusrun-latency.png)
+
+<details><summary>Data</summary>
+
 | Approach | Latency (1 Windows VM) | Latency (100 Windows VMs) | Latency (500 Windows VMs) | Latency (1000 Windows VMs) | Latency (1500 Windows VMs) | Latency (1 Linux VM) | Latency (100 Linux VMs) | Latency (350 Linux VMs) | Latency (1000 Linux VMs) |
 | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | clusrun (Windows headnode) | 0.2s | 0.4s | 1.6s | 3.7s | 5.8s | 0.1s | 0.3s | 1.3s | 3.5s |
@@ -3937,13 +3941,15 @@ Measure the average time in client to run command `hostname` on nodes.
 | [Azure VMSS Run Command via PowerShell](https://docs.microsoft.com/en-us/powershell/module/azurerm.compute/invoke-azurermvmssvmruncommand?view=azurermps-6.13.0) | 155s | N/A | N/A | N/A | N/A | 64s | N/A | N/A | N/A |
 | [Azure VM Run Command via Azure portal](https://docs.microsoft.com/en-us/azure/virtual-machines/windows/run-command) | 40s | N/A | N/A | N/A | N/A | 34s | N/A | N/A | N/A |
 
-![chart-latency](images/clusrun-latency.png)
+</details>
 
 ### Throughput
 
 Start several jobs with command `hostname` from client in parallel and measure the total count of commands executed in certain time.
 
-#### Environments
+![chart-throughput-1](images/clusrun-throughput-1.png)
+
+<details><summary>Environments</summary>
 
 - VM Size: Standard_D4s_v3
 - VM Disk: Standard SSD
@@ -3954,7 +3960,9 @@ Start several jobs with command `hostname` from client in parallel and measure t
     - "mark node lost after no heartbeat for seconds": 20
     - "max job count": 150
 
-#### Data
+</details>
+
+<details><summary>Data</summary>
 
 | Approach | Throughput (commands per second) |
 | --- | --- |
@@ -4001,9 +4009,7 @@ Start several jobs with command `hostname` from client in parallel and measure t
 | clusrun (8 Linux headnodes + 84 Linux VMs * 10 containers) | 9600 |
 | clusrun (16 Linux headnodes + 84 Linux VMs * 10 containers) | 21120 |
 
-![chart-throughput-1](images/clusrun-throughput-1.png)
-
-![chart-throughput-2](images/clusrun-throughput-2.png)
+</details>
 
 ## Issues and solutions
 
