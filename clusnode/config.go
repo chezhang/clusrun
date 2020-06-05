@@ -195,7 +195,7 @@ func LoadNodeConfigs() {
 			}
 		}
 	}
-	if headnode_config, ok := node_config[Config_Headnode].(map[string]interface{}); ok {
+	if headnode_config, ok := node_config[Config_Headnode].(map[string]interface{}); !ok {
 		LogWarning("Incorrect config format for headnode role of node %v, use default configs", NodeHost)
 	} else {
 		for _, config := range configs_headnode {
