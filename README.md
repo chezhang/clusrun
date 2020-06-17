@@ -2194,7 +2194,7 @@ The substance of clusrun installation is to copy the setup package to a node and
 - Run command with different content on each node
 
     ```CMD or Bash
-    clus run -sweep <placeholder[{begin[-end][,step]}]>
+    clus run -sweep <placeholder[{begin[-end][:step]}]>
     ```
 
     <details><summary>Example on Windows</summary>
