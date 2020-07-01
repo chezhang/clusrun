@@ -15,7 +15,6 @@ import (
 	"sync"
 	"time"
 
-	grpc "google.golang.org/grpc"
 	_ "google.golang.org/grpc/encoding/gzip"
 )
 
@@ -384,19 +383,21 @@ func validate(display_name, nodename, host string) {
 			time.Sleep(time.Duration(delay) * time.Second)
 		}
 		LogInfo("Start validating clusnode %v", display_name)
-		conn, err := grpc.Dial(host, grpc.WithInsecure(), grpc.WithBlock())
-		if err != nil {
-			LogError("Can not connect: %v", err)
+
+		// Setup connection
+		conn, cancel := ConnectNode(host)
+		defer cancel()
+		if conn == nil {
+			LogError("Failed to validate %v", host)
 			validateNumber.Store(display_name, number+1)
 			return
 		}
 		defer conn.Close()
-
 		c := pb.NewClusnodeClient(conn)
-		LogInfo("Connected to clusnode host %v", host)
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 
+		// Validate clusnode
 		reply, err := c.Validate(ctx, &pb.ValidateRequest{Headnode: NodeHost, Clusnode: host})
 		name := strings.ToUpper(reply.GetNodename())
 		if err != nil {
@@ -481,16 +482,15 @@ func startJobOnNode(id int32, command string, args []string, node string, job_on
 	job_on_nodes.Store(node, jobOnNode{state: pb.JobState_Dispatching})
 
 	// Setup connection
-	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
+	conn, cancel := ConnectNode(parseHost(node))
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, parseHost(node), grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		LogError("Can not connect node %v in %v: %v", node, ConnectTimeout, err)
+	if conn == nil {
+		LogError("Failed to start job %v on node %v", id, node)
 		return
 	}
 	defer conn.Close()
 	c := pb.NewClusnodeClient(conn)
-	ctx, cancel = context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
 	// Start job on clusnode
@@ -583,20 +583,19 @@ func cancelJobOnNode(id int32, node string, wg *sync.WaitGroup, result *sync.Map
 	defer wg.Done()
 
 	// Setup connection
-	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
+	conn, cancel := ConnectNode(parseHost(node))
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, parseHost(node), grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		LogError("Can not connect node %v in %v: %v", node, ConnectTimeout, err)
+	if conn == nil {
+		LogError("Can not cancel job %v on node %v", id, node)
 		return
 	}
 	defer conn.Close()
 	c := pb.NewClusnodeClient(conn)
-	ctx, cancel = context.WithTimeout(context.Background(), ConnectTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	// Cancel job on clusnode
-	_, err = c.CancelJob(ctx, &pb.CancelJobRequest{JobId: id, Headnode: NodeHost})
+	_, err := c.CancelJob(ctx, &pb.CancelJobRequest{JobId: id, Headnode: NodeHost})
 	if err != nil {
 		LogError("Failed to cancel job %v on node %v: %v", id, node, err)
 	} else {

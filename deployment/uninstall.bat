@@ -7,6 +7,8 @@ IF /I "%1"=="-cleanup" (
     rmdir /Q /S "%~dp0clusnode.exe.db"
     rmdir /Q /S "%~dp0clusnode.exe.logs"
     del "%~dp0clusnode.exe.config"
+    del "%~dp0cert.pem"
+    del "%~dp0key.pem"
 )
 
 ping 127.0.0.1 -n 2 > nul

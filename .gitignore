@@ -5,3 +5,4 @@ clusnode/clusnode.*
 .vscode
 release/*
 !release/build.ps1
+!release/openssl.zip

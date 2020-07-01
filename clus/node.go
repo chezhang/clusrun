@@ -8,6 +8,7 @@ import (
 	"os"
 	"sort"
 	"strings"
+	"time"
 )
 
 func Node(args []string) {
@@ -113,7 +114,7 @@ func getNodes(headnode, pattern, state, groups string, intersect bool) (nodes []
 	defer cancel()
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	// Get nodes reporting to the headnode
@@ -279,7 +280,7 @@ func setNodeGroups(headnode, nodeGroups string, nodes []*pb.Node, remove bool) s
 	defer cancel()
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	// Add or remove node groups for nodes

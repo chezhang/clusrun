@@ -15,7 +15,6 @@ import (
 	"time"
 
 	"github.com/judwhite/go-svc/svc"
-	"google.golang.org/grpc"
 )
 
 const (
@@ -243,12 +242,10 @@ func setOrGetConfig(node string, set bool, headnodes []string, mode pb.SetHeadno
 	}
 
 	// Setup connection
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	conn, cancel := ConnectNode(host)
 	defer cancel()
-	conn, err := grpc.DialContext(ctx, host, grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		fmt.Println("Can not connect:", err)
-		fmt.Println("Please ensure the node is started")
+	if conn == nil {
+		fmt.Println("Please ensure the node is started.")
 		return
 	}
 	defer conn.Close()
@@ -301,7 +298,7 @@ func setOrGetConfig(node string, set bool, headnodes []string, mode pb.SetHeadno
 	} else {
 		// Get clusnode role configs
 		c := pb.NewClusnodeClient(conn)
-		ctx, cancel = context.WithTimeout(context.Background(), time.Second)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 		defer cancel()
 		r, err := c.GetConfigs(ctx, &pb.Empty{})
 		print_result(label_clusnode_config, r.GetConfigs(), err)

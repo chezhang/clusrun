@@ -165,7 +165,7 @@ func cancelJobs(headnode string, job_ids map[int32]bool) {
 	defer cancel()
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	// Cancel jobs in the cluster
@@ -195,7 +195,7 @@ func getJobs(headnode string, ids map[int32]bool) []*pb.Job {
 	defer cancel()
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)
-	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
 	// Get jobs in the cluster

@@ -1,17 +1,24 @@
 package main
 
 import (
+	"context"
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"runtime/debug"
 	"strconv"
 	"strings"
+	"time"
+
+	grpc "google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 const (
-	Max_Int     = int(^uint(0) >> 1)
-	Min_Int     = -Max_Int - 1
-	DefaultPort = "50505"
+	Max_Int        = int(^uint(0) >> 1)
+	Min_Int        = -Max_Int - 1
+	DefaultPort    = "50505"
+	ConnectTimeout = 30 * time.Second
 )
 
 var (
@@ -59,4 +66,16 @@ func LogPanicBeforeExit() {
 		message := fmt.Sprintf("%v\n%v", panic, string(debug.Stack()))
 		LogFatality(message)
 	}
+}
+
+func ConnectNode(host string) (*grpc.ClientConn, context.CancelFunc) {
+	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
+	config := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+	conn, err := grpc.DialContext(ctx, host, grpc.WithTransportCredentials(credentials.NewTLS(config)), grpc.WithBlock())
+	if err != nil {
+		LogError("Can not connect %v in %v: %v", host, ConnectTimeout, err)
+	}
+	return conn, cancel
 }

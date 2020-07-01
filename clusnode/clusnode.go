@@ -3,7 +3,6 @@ package main
 import (
 	"clusrun/clusnode/platform"
 	pb "clusrun/protobuf"
-	grpc "google.golang.org/grpc"
 
 	"context"
 	"errors"
@@ -14,10 +13,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-)
-
-const (
-	ConnectTimeout = 30 * time.Second
 )
 
 var (
@@ -288,10 +283,8 @@ func heartbeat(from, headnode string) {
 				LogInfo("Start heartbeat from %v to %v", from, headnode)
 				stopped = false
 			}
-			ctx, cancelConn := context.WithTimeout(context.Background(), ConnectTimeout)
-			conn, err := grpc.DialContext(ctx, headnode, grpc.WithInsecure(), grpc.WithBlock())
-			if err != nil {
-				LogError("Can not connect %v in %v: %v", headnode, ConnectTimeout, err)
+			conn, cancelConn := ConnectNode(headnode)
+			if conn == nil {
 				connected = false
 			} else {
 				if !connected {
@@ -299,8 +292,8 @@ func heartbeat(from, headnode string) {
 					connected = true
 				}
 				c := pb.NewHeadnodeClient(conn)
-				ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
-				_, err = c.Heartbeat(ctx, &pb.HeartbeatRequest{Nodename: NodeName, Host: from})
+				ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+				_, err := c.Heartbeat(ctx, &pb.HeartbeatRequest{Nodename: NodeName, Host: from})
 				if err != nil {
 					LogError("Can not send heartbeat: %v", err)
 					connected = false

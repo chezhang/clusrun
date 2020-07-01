@@ -8,7 +8,7 @@ dir=$(dirname "$0")
 
 if [ "${1,,}" == "-cleanup" ]; then
     rm -rf "$dir/clusnode.db" "$dir/clusnode.logs"
-    rm -f "$dir/clusnode.config"
+    rm -f "$dir/clusnode.config" "$dir/cert.pem" "$dir/key.pem"
 fi
 
 rm -f "$dir/clusnode" "$dir/clus"

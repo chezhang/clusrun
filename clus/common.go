@@ -2,11 +2,14 @@ package main
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
-	"google.golang.org/grpc"
 	"os"
 	"strings"
 	"time"
+
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 const (
@@ -14,7 +17,7 @@ const (
 	Min_Int           = -Max_Int - 1
 	DefaultPort       = "50505"
 	LocalHost         = "localhost:" + DefaultPort
-	ConnectTimeout    = 30 * time.Second
+	ConnectTimeout    = 10 * time.Second
 	DefaultLineLength = 60
 )
 
@@ -58,10 +61,13 @@ func MaxInt(array ...int) int {
 
 func ConnectHeadnode(headnode string) (*grpc.ClientConn, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
-	conn, err := grpc.DialContext(ctx, headnode, grpc.WithInsecure(), grpc.WithBlock())
+	config := &tls.Config{
+		InsecureSkipVerify: true,
+	}
+	conn, err := grpc.DialContext(ctx, headnode, grpc.WithTransportCredentials(credentials.NewTLS(config)), grpc.WithBlock())
 	if err != nil {
-		fmt.Println("Can not connect:", err)
-		fmt.Printf("Please ensure the headnode %v is started and accessible.", headnode)
+		fmt.Printf("Can not connect %v in %v: %v\n", headnode, ConnectTimeout, err)
+		fmt.Println("Please ensure the headnode is started and accessible.")
 		os.Exit(1)
 	}
 	return conn, cancel
