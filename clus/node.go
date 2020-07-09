@@ -13,7 +13,7 @@ import (
 
 func Node(args []string) {
 	fs := flag.NewFlagSet("clus node options", flag.ExitOnError)
-	headnode := fs.String("headnode", LocalHost, "specify the headnode to connect")
+	SetGlobalParameters(fs)
 	filterBy_pattern := fs.String("pattern", "", "filter nodes matching the specified regular expression pattern")
 	filterBy_state := fs.String("state", "", "filter nodes in the specified state (ready, error or lost)")
 	filterBy_groups := fs.String("groups", "", "filter nodes in the specified node groups")
@@ -35,23 +35,22 @@ func Node(args []string) {
 	}
 
 	// Get nodes
-	h := ParseHeadnode(*headnode)
-	nodes := getNodes(h, *filterBy_pattern, *filterBy_state, *filterBy_groups, *filterBy_groups_intersect)
+	nodes := getNodes(*filterBy_pattern, *filterBy_state, *filterBy_groups, *filterBy_groups_intersect)
 
 	// Add or remove node groups
 	var groupMsgs []string
 	if len(nodes) > 0 {
 		setGroups := false
 		if *addGroups != "" {
-			groupMsgs = append(groupMsgs, setNodeGroups(h, *addGroups, nodes, false))
+			groupMsgs = append(groupMsgs, setNodeGroups(*addGroups, nodes, false))
 			setGroups = true
 		}
 		if *removeGroups != "" {
-			groupMsgs = append(groupMsgs, setNodeGroups(h, *removeGroups, nodes, true))
+			groupMsgs = append(groupMsgs, setNodeGroups(*removeGroups, nodes, true))
 			setGroups = true
 		}
 		if setGroups {
-			nodes = getNodes(h, *filterBy_pattern, *filterBy_state, *filterBy_groups, *filterBy_groups_intersect)
+			nodes = getNodes(*filterBy_pattern, *filterBy_state, *filterBy_groups, *filterBy_groups_intersect)
 		}
 	}
 	printGroupMsgs := func() {
@@ -79,7 +78,7 @@ func Node(args []string) {
 	}
 }
 
-func getNodes(headnode, pattern, state, groups string, intersect bool) (nodes []*pb.Node) {
+func getNodes(pattern, state, groups string, intersect bool) (nodes []*pb.Node) {
 	// Validate node state
 	node_state := pb.NodeState_Unknown
 	switch strings.ToLower(state) {
@@ -110,7 +109,7 @@ func getNodes(headnode, pattern, state, groups string, intersect bool) (nodes []
 	}
 
 	// Setup connection
-	conn, cancel := ConnectHeadnode(headnode)
+	conn, cancel := ConnectHeadnode()
 	defer cancel()
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)
@@ -256,7 +255,7 @@ func nodePrintGroups(nodes []*pb.Node, group_by string) {
 	}
 }
 
-func setNodeGroups(headnode, nodeGroups string, nodes []*pb.Node, remove bool) string {
+func setNodeGroups(nodeGroups string, nodes []*pb.Node, remove bool) string {
 	// Parse node groups
 	all := false
 	groups := strings.Split(nodeGroups, ",")
@@ -276,7 +275,7 @@ func setNodeGroups(headnode, nodeGroups string, nodes []*pb.Node, remove bool) s
 	}
 
 	// Setup connection
-	conn, cancel := ConnectHeadnode(headnode)
+	conn, cancel := ConnectHeadnode()
 	defer cancel()
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)

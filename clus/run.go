@@ -22,7 +22,7 @@ import (
 
 func Run(args []string) {
 	fs := flag.NewFlagSet("clus run options", flag.ExitOnError)
-	headnode := fs.String("headnode", LocalHost, "specify the headnode to connect")
+	SetGlobalParameters(fs)
 	script := fs.String("script", "", "specify the script file containing commands to run")
 	// files := fs.String("files", "", "specify the files or directories, which will be copied to the working directory on each node")
 	dump := fs.Bool("dump", false, "save the output to file")
@@ -51,7 +51,7 @@ func Run(args []string) {
 	if *dump {
 		output_dir = createOutputDir()
 	}
-	RunJob(ParseHeadnode(*headnode), command, *sweep, output_dir, *pattern, *name, parseNodesOrGroups(*groups), parseNodesOrGroups(*nodes), arguments, *cache, *prompt, *background, *groups_intersect)
+	RunJob(command, *sweep, output_dir, *pattern, *name, parseNodesOrGroups(*groups), parseNodesOrGroups(*nodes), arguments, *cache, *prompt, *background, *groups_intersect)
 }
 
 func displayRunUsage(fs *flag.FlagSet) {
@@ -96,11 +96,11 @@ func createOutputDir() string {
 	return output_dir
 }
 
-func RunJob(headnode, command, sweep, output_dir, pattern, name string, groups, nodes, arguments []string, cache_size, prompt int, background, intersect bool) {
+func RunJob(command, sweep, output_dir, pattern, name string, groups, nodes, arguments []string, cache_size, prompt int, background, intersect bool) {
 	dump := len(output_dir) > 0
 
 	// Setup connection
-	conn, cancel := ConnectHeadnode(headnode)
+	conn, cancel := ConnectHeadnode()
 	defer cancel()
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)

@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"crypto/tls"
+	"flag"
 	"fmt"
 	"os"
 	"strings"
@@ -23,7 +24,14 @@ const (
 
 var (
 	ConsoleWidth = 0
+	headnode     *string
+	insecure     *bool
 )
+
+func SetGlobalParameters(fs *flag.FlagSet) {
+	headnode = fs.String("headnode", LocalHost, "specify the headnode to connect")
+	insecure = fs.Bool("insecure", false, "specify to connect headnode with insecure connection")
+}
 
 func ParseHeadnode(headnode string) string {
 	if strings.Contains(headnode, ":") {
@@ -59,12 +67,16 @@ func MaxInt(array ...int) int {
 	return max
 }
 
-func ConnectHeadnode(headnode string) (*grpc.ClientConn, context.CancelFunc) {
+func ConnectHeadnode() (*grpc.ClientConn, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
-	config := &tls.Config{
-		InsecureSkipVerify: true,
+	secureOption := grpc.WithInsecure()
+	if !*insecure {
+		config := &tls.Config{
+			InsecureSkipVerify: true,
+		}
+		secureOption = grpc.WithTransportCredentials(credentials.NewTLS(config))
 	}
-	conn, err := grpc.DialContext(ctx, headnode, grpc.WithTransportCredentials(credentials.NewTLS(config)), grpc.WithBlock())
+	conn, err := grpc.DialContext(ctx, ParseHeadnode(*headnode), secureOption, grpc.WithBlock())
 	if err != nil {
 		fmt.Printf("Can not connect %v in %v: %v\n", headnode, ConnectTimeout, err)
 		fmt.Println("Please ensure the headnode is started and accessible.")

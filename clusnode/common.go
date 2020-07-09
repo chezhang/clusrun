@@ -26,6 +26,11 @@ var (
 	RunOnWindows   bool
 	NodeHost       string
 	NodeName       string
+	Tls            struct {
+		Enabled  bool
+		CertFile string
+		KeyFile  string
+	}
 )
 
 func ParseHostAddress(address string) (hostname, port, host string, err error) {
@@ -70,10 +75,14 @@ func LogPanicBeforeExit() {
 
 func ConnectNode(host string) (*grpc.ClientConn, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
-	config := &tls.Config{
-		InsecureSkipVerify: true,
+	secureOption := grpc.WithInsecure()
+	if Tls.Enabled {
+		config := &tls.Config{
+			InsecureSkipVerify: true,
+		}
+		secureOption = grpc.WithTransportCredentials(credentials.NewTLS(config))
 	}
-	conn, err := grpc.DialContext(ctx, host, grpc.WithTransportCredentials(credentials.NewTLS(config)), grpc.WithBlock())
+	conn, err := grpc.DialContext(ctx, host, secureOption, grpc.WithBlock())
 	if err != nil {
 		LogError("Can not connect %v in %v: %v", host, ConnectTimeout, err)
 	}

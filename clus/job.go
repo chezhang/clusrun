@@ -20,7 +20,7 @@ const (
 
 func Job(args []string) {
 	fs := flag.NewFlagSet("clus job options", flag.ExitOnError)
-	headnode := fs.String("headnode", LocalHost, "specify the headnode to connect")
+	SetGlobalParameters(fs)
 	format := fs.String("format", "", "format the jobs in table or list")
 	cancel := fs.Bool("cancel", false, "cancel jobs")
 	rerun := fs.Bool("rerun", false, "rerun jobs")
@@ -40,7 +40,7 @@ func Job(args []string) {
 			fmt.Println("Please specify jobs to cancel.")
 			return
 		}
-		cancelJobs(ParseHeadnode(*headnode), job_ids)
+		cancelJobs(job_ids)
 		if !*rerun {
 			return
 		}
@@ -48,7 +48,7 @@ func Job(args []string) {
 	if no_job_args {
 		job_ids[jobId_all] = false
 	}
-	jobs := getJobs(ParseHeadnode(*headnode), job_ids)
+	jobs := getJobs(job_ids)
 	if *rerun {
 		if *retry {
 			fmt.Println("Conflict options: -rerun and -retry")
@@ -61,7 +61,7 @@ func Job(args []string) {
 				lebal := fmt.Sprintf("Rerun job %v", job.Id)
 				fmt.Printf("%v: ", lebal)
 				name := fmt.Sprintf("[%v] %v", lebal, job.Name)
-				RunJob(ParseHeadnode(*headnode), job.Command, job.Sweep, "", job.NodePattern, name, job.NodeGroups, job.SpecifiedNodes, job.Arguments, 0, 0, true, false)
+				RunJob(job.Command, job.Sweep, "", job.NodePattern, name, job.NodeGroups, job.SpecifiedNodes, job.Arguments, 0, 0, true, false)
 			}
 		}
 		return
@@ -86,7 +86,7 @@ func Job(args []string) {
 					for node := range job.FailedNodes {
 						failedNodes = append(failedNodes, node)
 					}
-					RunJob(ParseHeadnode(*headnode), job.Command, "", "", "", name, nil, failedNodes, job.Arguments, 0, 0, true, false)
+					RunJob(job.Command, "", "", "", name, nil, failedNodes, job.Arguments, 0, 0, true, false)
 				}
 			}
 		}
@@ -159,9 +159,9 @@ func parseJobIds(args []string) (job_ids map[int32]bool, err error) {
 	return
 }
 
-func cancelJobs(headnode string, job_ids map[int32]bool) {
+func cancelJobs(job_ids map[int32]bool) {
 	// Setup connection
-	conn, cancel := ConnectHeadnode(headnode)
+	conn, cancel := ConnectHeadnode()
 	defer cancel()
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)
@@ -189,9 +189,9 @@ func cancelJobs(headnode string, job_ids map[int32]bool) {
 	}
 }
 
-func getJobs(headnode string, ids map[int32]bool) []*pb.Job {
+func getJobs(ids map[int32]bool) []*pb.Job {
 	// Setup connection
-	conn, cancel := ConnectHeadnode(headnode)
+	conn, cancel := ConnectHeadnode()
 	defer cancel()
 	defer conn.Close()
 	c := pb.NewHeadnodeClient(conn)

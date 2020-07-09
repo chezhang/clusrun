@@ -4,18 +4,12 @@ import (
 	pb "clusrun/protobuf"
 	"fmt"
 	"net"
-	"path/filepath"
 	"syscall"
 	"time"
 
 	svc "github.com/judwhite/go-svc/svc"
 	grpc "google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
-)
-
-const (
-	tls_certFile = "cert.pem"
-	tls_keyFile  = "key.pem"
 )
 
 type program struct {
@@ -57,15 +51,20 @@ func (p *program) startNodeService() {
 	if err != nil {
 		LogFatality("Failed to listen: %v", err)
 	}
-	curDir := filepath.Dir(ExecutablePath)
-	creds, err := credentials.NewServerTLSFromFile(filepath.Join(curDir, tls_certFile), filepath.Join(curDir, tls_keyFile))
-	if err != nil {
-		LogFatality("Failed to load TLS credentials from file: %s", err)
+	options := []grpc.ServerOption{}
+	msg := "without TLS"
+	if Tls.Enabled {
+		creds, err := credentials.NewServerTLSFromFile(Tls.CertFile, Tls.KeyFile)
+		if err != nil {
+			LogFatality("Failed to load TLS credentials from file: %s", err)
+		}
+		options = append(options, grpc.Creds(creds))
+		msg = "with TLS"
 	}
-	p.grpc_server = grpc.NewServer(grpc.Creds(creds))
+	p.grpc_server = grpc.NewServer(options...)
 	pb.RegisterClusnodeServer(p.grpc_server, &clusnode_server{})
 	pb.RegisterHeadnodeServer(p.grpc_server, &headnode_server{})
-	LogInfo("Node %v starts listening on %v", NodeName, NodeHost)
+	LogInfo("Node %v starts listening on %v %v", NodeName, NodeHost, msg)
 	if err := p.grpc_server.Serve(lis); err != nil {
 		LogFatality("Failed to serve: %v", err)
 	}

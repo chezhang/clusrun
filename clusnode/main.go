@@ -65,17 +65,34 @@ Usage of config:
 func initGlobalVars() {
 	var err error
 	if ExecutablePath, err = os.Executable(); err != nil {
-		LogFatality("Failed to get executable path: %v", err)
+		fmt.Printf("Failed to get executable path: %v", err)
+		os.Exit(1)
 	}
 
 	hostname, err := os.Hostname()
 	if err != nil {
-		LogFatality("Failed to get hostname: %v", err)
+		fmt.Printf("Failed to get hostname: %v", err)
+		os.Exit(1)
 	}
 	NodeName = strings.ToUpper(hostname)
+
 	localHost = NodeName + ":" + DefaultPort
 
 	RunOnWindows = runtime.GOOS == "windows"
+
+	Tls.Enabled = true
+	curDir := filepath.Dir(ExecutablePath)
+	cert, key := filepath.Join(curDir, "cert.pem"), filepath.Join(curDir, "key.pem")
+	if _, err := os.Stat(cert); os.IsNotExist(err) {
+		Tls.Enabled = false
+	} else {
+		Tls.CertFile = cert
+	}
+	if _, err := os.Stat(key); os.IsNotExist(err) {
+		Tls.Enabled = false
+	} else {
+		Tls.KeyFile = key
+	}
 }
 
 func start(args []string) {
