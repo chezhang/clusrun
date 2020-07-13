@@ -18,11 +18,11 @@ func Node(args []string) {
 	filterBy_state := fs.String("state", "", "filter nodes in the specified state (ready, error or lost)")
 	filterBy_groups := fs.String("groups", "", "filter nodes in the specified node groups")
 	filterBy_groups_intersect := fs.Bool("intersect", false, "specify to filter nodes in intersection (union if not specified) of node groups")
-	groupBy := fs.String("groupby", "", "group the nodes by state or node group")         // name prefix, running jobs
-	orderBy := fs.String("orderby", "name", "sort the nodes by node name or node groups") // running jobs
+	groupBy := fs.String("group-by", "", "group the nodes by state or node group")         // name prefix, running jobs
+	orderBy := fs.String("order-by", "name", "sort the nodes by node name or node groups") // running jobs
 	format := fs.String("format", "table", "format the nodes in table, list or group")
-	addGroups := fs.String("addgroups", "", "add nodes to the specified node groups")
-	removeGroups := fs.String("removegroups", "", "remove nodes from the specified node groups")
+	addGroups := fs.String("add-groups", "", "add nodes to the specified node groups")
+	removeGroups := fs.String("remove-groups", "", "remove nodes from the specified node groups")
 	// prefix := fs.Int("prefix", 0, "merge the nodes with same name prefix of specified length (only in table format)")
 	// monitor := fs.Bool("monitor", false, "keep refreshing the node information")
 	// purge := fs.Bool("purge", false, "purge the lost nodes in headnode")
@@ -217,7 +217,7 @@ func nodePrintList(nodes []*pb.Node, group_by, order_by string) {
 
 func nodePrintGroups(nodes []*pb.Node, group_by string) {
 	if len(group_by) == 0 {
-		fmt.Println("Please specify groupby option.")
+		fmt.Println("Please specify group-by option.")
 		os.Exit(1)
 	}
 	type group struct {
@@ -364,7 +364,7 @@ func getNodesByGroup(nodes []*pb.Node, groupby string, separate_group bool) map[
 			}
 		}
 	default:
-		fmt.Println("Invalid groupby option:", groupby)
+		fmt.Println("Invalid group-by option:", groupby)
 		os.Exit(1)
 	}
 	return groups
@@ -438,7 +438,7 @@ func sortNodes(nodes []*pb.Node, order_by string) {
 						}
 				*/
 			default:
-				fmt.Println("Invalid orderby option:", order_by)
+				fmt.Println("Invalid order-by option:", order_by)
 				os.Exit(1)
 			}
 		}
