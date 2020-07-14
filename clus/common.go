@@ -24,12 +24,12 @@ const (
 
 var (
 	ConsoleWidth = 0
-	headnode     *string
+	Headnode     *string
 	insecure     *bool
 )
 
 func SetGlobalParameters(fs *flag.FlagSet) {
-	headnode = fs.String("headnode", LocalHost, "specify the headnode to connect")
+	Headnode = fs.String("headnode", LocalHost, "specify the headnode to connect")
 	insecure = fs.Bool("insecure", false, "specify to connect headnode with insecure connection")
 }
 
@@ -76,9 +76,9 @@ func ConnectHeadnode() (*grpc.ClientConn, context.CancelFunc) {
 		}
 		secureOption = grpc.WithTransportCredentials(credentials.NewTLS(config))
 	}
-	conn, err := grpc.DialContext(ctx, ParseHeadnode(*headnode), secureOption, grpc.WithBlock())
+	conn, err := grpc.DialContext(ctx, ParseHeadnode(*Headnode), secureOption, grpc.WithBlock())
 	if err != nil {
-		fmt.Printf("Can not connect %v in %v: %v\n", headnode, ConnectTimeout, err)
+		fmt.Printf("Can not connect %v in %v: %v\n", *Headnode, ConnectTimeout, err)
 		fmt.Println("Please ensure the headnode is started and accessible.")
 		os.Exit(1)
 	}

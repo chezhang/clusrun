@@ -127,7 +127,7 @@ func RunJob(command, sweep, output_dir, pattern, name string, groups, nodes, arg
 	} else {
 		all_nodes = output.GetNodes()
 		job_id = output.GetJobId()
-		fmt.Printf("Job %v %q started on %v nodes in cluster %v.\n", job_id, name, len(all_nodes), headnode)
+		fmt.Printf("Job %v %q started on %v nodes in cluster %v.\n", job_id, name, len(all_nodes), *Headnode)
 		if dump {
 			fmt.Println("Dumping output to", output_dir)
 		} else if background {
