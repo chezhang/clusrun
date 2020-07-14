@@ -148,7 +148,7 @@ func (s *headnode_server) GetJobs(ctx context.Context, in *pb.GetJobsRequest) (*
 		}
 		job.Progress = fmt.Sprintf("%v/%v", done, all)
 	}
-	LogInfo("GetJobs result:\n%v", jobs)
+	LogInfo("GetJobs result:%v%v", LineEnding, jobs)
 	return &pb.GetJobsReply{Jobs: jobs}, nil
 }
 

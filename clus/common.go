@@ -24,7 +24,8 @@ const (
 )
 
 var (
-	ConsoleWidth = 0
+	LineEnding   string
+	ConsoleWidth int
 	Headnode     *string
 	insecure     *bool
 )
@@ -44,15 +45,13 @@ func ParseHeadnode(headnode string) string {
 
 func ParseNodesOrGroups(s, f string) []string {
 	// if len(s) > 0 && len(file) > 0 {
-	// 	fmt.Println("Please only specify one of the string or file to load nodes or node groups.")
-	// 	os.Exit(1)
+	// 	Fatallnf("Please only specify one of the string or file to load nodes or node groups.")
 	// }
 	items := strings.Split(s, ",")
 	if len(f) > 0 {
 		file, err := ioutil.ReadFile(f)
 		if err != nil {
-			fmt.Println("Failed to read file:", err)
-			os.Exit(1)
+			Fatallnf("Failed to read file: %v", err)
 		}
 		items = append(strings.Split(strings.NewReplacer("\r\n", ",", "\n", ",").Replace(string(file)), ","), items...)
 	}
@@ -107,9 +106,17 @@ func ConnectHeadnode() (*grpc.ClientConn, context.CancelFunc) {
 	}
 	conn, err := grpc.DialContext(ctx, ParseHeadnode(*Headnode), secureOption, grpc.WithBlock())
 	if err != nil {
-		fmt.Printf("Can not connect %v in %v: %v\n", *Headnode, ConnectTimeout, err)
-		fmt.Println("Please ensure the headnode is started and accessible.")
-		os.Exit(1)
+		Printlnf("Can not connect %v in %v: %v", *Headnode, ConnectTimeout, err)
+		Fatallnf("Please ensure the headnode is started and accessible.")
 	}
 	return conn, cancel
+}
+
+func Printlnf(format string, v ...interface{}) {
+	fmt.Printf(format+LineEnding, v...)
+}
+
+func Fatallnf(format string, v ...interface{}) {
+	Printlnf(format, v...)
+	os.Exit(1)
 }

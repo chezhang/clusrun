@@ -1,21 +1,32 @@
 package main
 
 import (
-	"fmt"
-	"golang.org/x/crypto/ssh/terminal"
 	"os"
+	"runtime"
 	"strings"
+
+	"golang.org/x/crypto/ssh/terminal"
 )
+
+func initGlobalVars() {
+	LineEnding = "\n"
+	if runtime.GOOS == "windows" {
+		LineEnding = "\r\n"
+	}
+
+	ConsoleWidth = 0
+	var err error
+	if ConsoleWidth, _, err = terminal.GetSize(int(os.Stdout.Fd())); err != nil {
+		Printlnf("[Warning] Failed to get console width: %v", err)
+	}
+}
 
 func main() {
 	if len(os.Args) < 2 {
 		displayUsage()
 		return
 	}
-	var err error
-	if ConsoleWidth, _, err = terminal.GetSize(int(os.Stdout.Fd())); err != nil {
-		fmt.Printf("[Warning] Failed to get console width: %v\n", err)
-	}
+	initGlobalVars()
 	cmd, args := os.Args[1], os.Args[2:]
 	switch strings.ToLower(cmd) {
 	case "node":
@@ -30,7 +41,7 @@ func main() {
 }
 
 func displayUsage() {
-	fmt.Printf(`
+	Printlnf(`
 Usage: 
 	clus <command> [arguments]
 

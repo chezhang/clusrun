@@ -5,7 +5,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"runtime/debug"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -22,8 +22,9 @@ const (
 )
 
 var (
-	ExecutablePath string
+	LineEnding     string
 	RunOnWindows   bool
+	ExecutablePath string
 	NodeHost       string
 	NodeName       string
 	Tls            struct {
@@ -66,13 +67,6 @@ func FileNameFormatHost(host string) string {
 	return strings.ReplaceAll(host, ":", ".")
 }
 
-func LogPanicBeforeExit() {
-	if panic := recover(); panic != nil {
-		message := fmt.Sprintf("%v\n%v", panic, string(debug.Stack()))
-		LogFatality(message)
-	}
-}
-
 func ConnectNode(host string) (*grpc.ClientConn, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 	secureOption := grpc.WithInsecure()
@@ -87,4 +81,13 @@ func ConnectNode(host string) (*grpc.ClientConn, context.CancelFunc) {
 		LogError("Can not connect %v in %v: %v", host, ConnectTimeout, err)
 	}
 	return conn, cancel
+}
+
+func Printlnf(format string, v ...interface{}) {
+	fmt.Printf(format+LineEnding, v...)
+}
+
+func Fatallnf(format string, v ...interface{}) {
+	Printlnf(format, v...)
+	os.Exit(1)
 }

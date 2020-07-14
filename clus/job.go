@@ -5,7 +5,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"os"
 	"sort"
 	"strconv"
 	"strings"
@@ -32,12 +31,11 @@ func Job(args []string) {
 	no_job_args := len(fs.Args()) == 0
 	job_ids, err := parseJobIds(fs.Args())
 	if err != nil {
-		fmt.Println(err)
-		os.Exit(1)
+		Fatallnf("%v", err)
 	}
 	if *cancel {
 		if no_job_args {
-			fmt.Println("Please specify jobs to cancel.")
+			Printlnf("Please specify jobs to cancel.")
 			return
 		}
 		cancelJobs(job_ids)
@@ -51,11 +49,11 @@ func Job(args []string) {
 	jobs := getJobs(job_ids)
 	if *rerun {
 		if *retry {
-			fmt.Println("Conflict options: -rerun and -retry")
+			Printlnf("Conflict options: -rerun and -retry")
 		} else if no_job_args {
-			fmt.Println("Please specify jobs to rerun.")
+			Printlnf("Please specify jobs to rerun.")
 		} else if len(jobs) == 0 {
-			fmt.Println("No jobs to rerun.")
+			Printlnf("No jobs to rerun.")
 		} else {
 			for _, job := range jobs {
 				lebal := fmt.Sprintf("Rerun job %v", job.Id)
@@ -68,9 +66,9 @@ func Job(args []string) {
 	}
 	if *retry {
 		if no_job_args {
-			fmt.Println("Please specify jobs to retry.")
+			Printlnf("Please specify jobs to retry.")
 		} else if len(jobs) == 0 {
-			fmt.Println("No jobs to retry.")
+			Printlnf("No jobs to retry.")
 		} else {
 			for _, job := range jobs {
 				lebal := fmt.Sprintf("Retry job %v", job.Id)
@@ -78,9 +76,9 @@ func Job(args []string) {
 				name := fmt.Sprintf("[%v] %v", lebal, job.Name)
 				// TODO when needed: retry same job in server rather than create new job
 				if len(job.FailedNodes) == 0 {
-					fmt.Println("No failed nodes.")
+					Printlnf("No failed nodes.")
 				} else if len(job.Sweep) > 0 {
-					fmt.Println("Can not retry job with sweep option.")
+					Printlnf("Can not retry job with sweep option.")
 				} else {
 					failedNodes := make([]string, 0, len(job.FailedNodes))
 					for node := range job.FailedNodes {
@@ -105,7 +103,7 @@ func Job(args []string) {
 	case "list":
 		jobPrintList(jobs)
 	default:
-		fmt.Println("Invalid format option:", *format)
+		Printlnf("Invalid format option: %v", *format)
 		return
 	}
 }
@@ -171,12 +169,11 @@ func cancelJobs(job_ids map[int32]bool) {
 	// Cancel jobs in the cluster
 	reply, err := c.CancelClusJobs(ctx, &pb.CancelClusJobsRequest{JobIds: job_ids})
 	if err != nil {
-		fmt.Println("Can not cancel jobs:", err)
-		os.Exit(1)
+		Fatallnf("Can not cancel jobs: %v", err)
 	}
 	result := reply.GetResult()
 	if len(result) == 0 {
-		fmt.Println("No job is cancelled.")
+		Printlnf("No job is cancelled.")
 	} else {
 		states := map[pb.JobState][]int32{}
 		for id, state := range result {
@@ -184,7 +181,7 @@ func cancelJobs(job_ids map[int32]bool) {
 		}
 		for state, ids := range states {
 			sort.Slice(ids, func(i, j int) bool { return ids[i] < ids[j] })
-			fmt.Printf("%v jobs: %v\n", state, ids)
+			Printlnf("%v jobs: %v", state, ids)
 		}
 	}
 }
@@ -201,8 +198,7 @@ func getJobs(ids map[int32]bool) []*pb.Job {
 	// Get jobs in the cluster
 	reply, err := c.GetJobs(ctx, &pb.GetJobsRequest{JobIds: ids}, grpc.UseCompressor("gzip"))
 	if err != nil {
-		fmt.Println("Can not get jobs:", err)
-		os.Exit(1)
+		Fatallnf("Can not get jobs: %v", err)
 	}
 	jobs := reply.GetJobs()
 	return jobs
@@ -276,7 +272,7 @@ func jobPrintTable(jobs []*pb.Job) {
 			max_command_length = len(header_command)
 		}
 		command_width := max_command_length
-		fmt.Printf("%-*s%-*s%-*s%-*s%-*s%-*s%-*s\n",
+		Printlnf("%-*s%-*s%-*s%-*s%-*s%-*s%-*s",
 			id_width, header_id,
 			name_width, header_name,
 			state_width, header_state,
@@ -284,7 +280,7 @@ func jobPrintTable(jobs []*pb.Job) {
 			create_time_width, header_create_time,
 			end_time_width, header_end_time,
 			command_width, header_command)
-		fmt.Printf("%-*s%-*s%-*s%-*s%-*s%-*s%-*s\n",
+		Printlnf("%-*s%-*s%-*s%-*s%-*s%-*s%-*s",
 			id_width, strings.Repeat("-", max_id_length),
 			name_width, strings.Repeat("-", max_name_length),
 			state_width, strings.Repeat("-", max_state_length),
@@ -315,7 +311,7 @@ func jobPrintTable(jobs []*pb.Job) {
 			if end_time_width > 0 && job.EndTime != 0 {
 				end_time = fmt.Sprintf("%v", time.Unix(job.EndTime, 0))
 			}
-			fmt.Printf("%-*v%-*v%-*v%-*v%-*v%-*v%-*v\n",
+			Printlnf("%-*v%-*v%-*v%-*v%-*v%-*v%-*v",
 				id_width, job.Id,
 				name_width, name,
 				state_width, job.State,
@@ -324,9 +320,9 @@ func jobPrintTable(jobs []*pb.Job) {
 				end_time_width, end_time,
 				command_width, command)
 		}
-		fmt.Println(strings.Repeat("-", id_width+name_width+state_width+progress_width+create_time_width+end_time_width+command_width))
+		Printlnf(strings.Repeat("-", id_width+name_width+state_width+progress_width+create_time_width+end_time_width+command_width))
 	}
-	fmt.Println("Job count:", len(jobs))
+	Printlnf("Job count: %v", len(jobs))
 }
 
 func jobPrintList(jobs []*pb.Job) {
@@ -335,7 +331,7 @@ func jobPrintList(jobs []*pb.Job) {
 	maxLength := MaxInt(len(item_id), len(item_name), len(item_state), len(item_progress), len(item_createTime), len(item_endTime), len(item_sweep), len(item_nodePattern),
 		len(item_nodeGroups), len(item_specifiedNodes), len(item_nodes), len(item_failedNodes), len(item_cancelFailedNodes), len(item_arguments), len(item_command))
 	print := func(name string, value interface{}) {
-		fmt.Printf("%-*v : %v\n", maxLength, name, value)
+		Printlnf("%-*v : %v", maxLength, name, value)
 	}
 	for _, job := range jobs {
 		print(item_id, job.Id)
@@ -381,9 +377,9 @@ func jobPrintList(jobs []*pb.Job) {
 			print(item_arguments, fmt.Sprintf("%q", args))
 		}
 		print(item_command, job.Command)
-		fmt.Println(GetPaddingLine(""))
+		Printlnf(GetPaddingLine(""))
 	}
-	fmt.Println("Job count:", len(jobs))
+	Printlnf("Job count: %v", len(jobs))
 }
 
 func getJobTableMaxLength(jobs []*pb.Job) (id, name, state, progress, create_time, end_time, command int) {
@@ -404,7 +400,7 @@ func getJobTableMaxLength(jobs []*pb.Job) (id, name, state, progress, create_tim
 		if job.EndTime != 0 {
 			end_time = create_time
 		}
-		job.Command = strings.ReplaceAll(strings.ReplaceAll(job.Command, "\r", `\r`), "\n", `\n`)
+		job.Command = strings.NewReplacer("\r", `\r`, "\n", `\n`).Replace(job.Command)
 		if length := len(job.Command); length > command {
 			command = length
 		}

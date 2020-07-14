@@ -5,7 +5,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"os"
 	"sort"
 	"strings"
 	"time"
@@ -31,8 +30,7 @@ func Node(args []string) {
 	_ = fs.Parse(args)
 	if len(fs.Args()) > 0 {
 		// TODO: query nodes info
-		fmt.Println("Invalid parameter:", strings.Join(fs.Args(), " "))
-		os.Exit(1)
+		Fatallnf("Invalid parameter: %v", strings.Join(fs.Args(), " "))
 	}
 
 	// Get nodes
@@ -58,7 +56,7 @@ func Node(args []string) {
 	printGroupMsgs := func() {
 		if len(groupMsgs) > 0 {
 			for _, msg := range groupMsgs {
-				fmt.Println(msg)
+				Printlnf(msg)
 			}
 		}
 	}
@@ -75,8 +73,7 @@ func Node(args []string) {
 		nodePrintGroups(nodes, *groupBy)
 		printGroupMsgs()
 	default:
-		fmt.Println("Invalid format option:", *format)
-		os.Exit(1)
+		Fatallnf("Invalid format option: %v", *format)
 	}
 }
 
@@ -93,8 +90,7 @@ func getNodes(pattern, state string, groups []string, intersect bool) (nodes []*
 	case "lost":
 		node_state = pb.NodeState_Lost
 	default:
-		fmt.Println("Invalid node state option:", state)
-		os.Exit(1)
+		Fatallnf("Invalid node state option: %v", state)
 	}
 
 	// Setup connection
@@ -108,8 +104,7 @@ func getNodes(pattern, state string, groups []string, intersect bool) (nodes []*
 	// Get nodes reporting to the headnode
 	reply, err := c.GetNodes(ctx, &pb.GetNodesRequest{Pattern: pattern, Groups: groups, State: node_state, GroupsIntersect: intersect})
 	if err != nil {
-		fmt.Println("Could not get nodes:", err)
-		os.Exit(1)
+		Fatallnf("Could not get nodes: %v", err)
 	}
 	return reply.GetNodes()
 }
@@ -151,11 +146,11 @@ func nodePrintTable(nodes []*pb.Node, group_by, order_by string) {
 			sortNodes(group, order_by)
 		}
 		groups_width := max_groups_length
-		fmt.Printf("%-*s%-*s%-*s\n",
+		Printlnf("%-*s%-*s%-*s",
 			name_width, header_node,
 			state_width, header_state,
 			groups_width, header_groups)
-		fmt.Printf("%-*s%-*s%-*s\n",
+		Printlnf("%-*s%-*s%-*s",
 			name_width, strings.Repeat("-", max_name_length),
 			state_width, strings.Repeat("-", max_state_length),
 			groups_width, strings.Repeat("-", max_groups_length))
@@ -167,25 +162,25 @@ func nodePrintTable(nodes []*pb.Node, group_by, order_by string) {
 					node_groups = node_groups[:max_groups_length-len(padding)]
 					node_groups += padding
 				}
-				fmt.Printf("%-*s%-*s%-*s\n",
+				Printlnf("%-*s%-*s%-*s",
 					name_width, node.Name,
 					state_width, node.State,
 					groups_width, node_groups)
 			}
 			if i < len(groups)-1 {
-				fmt.Println()
+				Printlnf("")
 			}
 		}
-		fmt.Println(strings.Repeat("-", name_width+state_width+groups_width))
+		Printlnf(strings.Repeat("-", name_width+state_width+groups_width))
 	}
-	fmt.Println("Node count:", len(nodes))
+	Printlnf("Node count: %v", len(nodes))
 }
 
 func nodePrintList(nodes []*pb.Node, group_by, order_by string) {
 	item_node, item_state, item_groups := "Node", "State", "Groups"
 	maxLength := MaxInt(len(item_node), len(item_state), len(item_groups))
 	print := func(item string, value interface{}) {
-		fmt.Printf("%-*v : %v\n", maxLength, item, value)
+		Printlnf("%-*v : %v", maxLength, item, value)
 	}
 	groups := getSortedGroups(nodes, group_by)
 	for i := range groups {
@@ -198,16 +193,15 @@ func nodePrintList(nodes []*pb.Node, group_by, order_by string) {
 			if len(g) > 0 {
 				print(item_groups, g)
 			}
-			fmt.Println(GetPaddingLine(""))
+			Printlnf(GetPaddingLine(""))
 		}
 	}
-	fmt.Println("Node count:", len(nodes))
+	Printlnf("Node count: %v", len(nodes))
 }
 
 func nodePrintGroups(nodes []*pb.Node, group_by string) {
 	if len(group_by) == 0 {
-		fmt.Println("Please specify group-by option.")
-		os.Exit(1)
+		Fatallnf("Please specify group-by option.")
 	}
 	type group struct {
 		name  string
@@ -223,14 +217,14 @@ func nodePrintGroups(nodes []*pb.Node, group_by string) {
 		groups = append(groups, group{k, names})
 	}
 	if len(groups) == 0 {
-		fmt.Println("No group of nodes.")
+		Printlnf("No group of nodes.")
 		return
 	}
 	sort.Slice(groups, func(i, j int) bool { return strings.Compare(groups[i].name, groups[j].name) < 0 })
 	for i := range groups {
 		printGroup(groups[i].name, groups[i].nodes)
 	}
-	fmt.Println(GetPaddingLine(""))
+	Printlnf(GetPaddingLine(""))
 	for i := range groups {
 		category := "group"
 		if strings.ToLower(group_by) == "state" {
@@ -240,7 +234,7 @@ func nodePrintGroups(nodes []*pb.Node, group_by string) {
 		if group := groups[i].name; len(group) > 0 {
 			label = fmt.Sprintf("%v '%v'", category, group)
 		}
-		fmt.Printf("Count of nodes in %v: %v\n", label, len(groups[i].nodes))
+		Printlnf("Count of nodes in %v: %v", label, len(groups[i].nodes))
 	}
 }
 
@@ -251,14 +245,12 @@ func setNodeGroups(nodeGroups string, nodes []*pb.Node, remove bool) string {
 	for i, group := range groups {
 		groups[i] = strings.TrimSpace(group)
 		if len(groups[i]) == 0 {
-			fmt.Println("Empty group name.")
-			os.Exit(1)
+			Fatallnf("Empty group name.")
 		}
 		if groups[i] == "*" {
 			all = true
 			if !remove {
-				fmt.Println("Invalid group name: *")
-				os.Exit(1)
+				Fatallnf("Invalid group name: *")
 			}
 		}
 	}
@@ -273,8 +265,7 @@ func setNodeGroups(nodeGroups string, nodes []*pb.Node, remove bool) string {
 
 	// Add or remove node groups for nodes
 	if _, err := c.SetNodeGroups(ctx, &pb.SetNodeGroupsRequest{Groups: groups, Nodes: nodes, Remove: remove}); err != nil {
-		fmt.Println("Could not set node groups:", err)
-		os.Exit(1)
+		Fatallnf("Could not set node groups: %v", err)
 	}
 	v := "added to"
 	if remove {
@@ -292,7 +283,7 @@ func printGroup(name string, nodes []string) {
 		if len(name) > 0 {
 			name = fmt.Sprintf("[%v]", name)
 		}
-		fmt.Println(GetPaddingLine(fmt.Sprintf("---%v---", name)))
+		Printlnf(GetPaddingLine(fmt.Sprintf("---%v---", name)))
 		max_name_length := 0
 		for i := range nodes {
 			if length := len(nodes[i]); length > max_name_length {
@@ -301,7 +292,7 @@ func printGroup(name string, nodes []string) {
 		}
 		sort.Strings(nodes)
 		if ConsoleWidth == 0 {
-			fmt.Println(strings.Join(nodes, ", "))
+			Printlnf(strings.Join(nodes, ", "))
 		} else {
 			padding := 3
 			width := max_name_length + padding
@@ -313,12 +304,12 @@ func printGroup(name string, nodes []string) {
 				fmt.Print(nodes[i])
 				length := len(nodes[i])
 				if i%count == count-1 {
-					fmt.Println()
+					Printlnf("")
 				} else {
 					fmt.Print(strings.Repeat(" ", width-length))
 				}
 			}
-			fmt.Println()
+			Printlnf("")
 		}
 	}
 }
@@ -353,8 +344,7 @@ func getNodesByGroup(nodes []*pb.Node, groupby string, separate_group bool) map[
 			}
 		}
 	default:
-		fmt.Println("Invalid group-by option:", groupby)
-		os.Exit(1)
+		Fatallnf("Invalid group-by option: %v", groupby)
 	}
 	return groups
 }
@@ -427,8 +417,7 @@ func sortNodes(nodes []*pb.Node, order_by string) {
 						}
 				*/
 			default:
-				fmt.Println("Invalid order-by option:", order_by)
-				os.Exit(1)
+				Fatallnf("Invalid order-by option: %v", order_by)
 			}
 		}
 		return false

@@ -3,8 +3,8 @@ package main
 import (
 	"fmt"
 	"log"
-	"os"
 	"runtime"
+	"runtime/debug"
 	"strings"
 )
 
@@ -22,9 +22,14 @@ func LogError(format string, v ...interface{}) {
 
 func LogFatality(format string, v ...interface{}) {
 	LogError(format, v...)
-	fmt.Printf(format, v...)
-	fmt.Println()
-	os.Exit(1)
+	Fatallnf(format, v...)
+}
+
+func LogPanicBeforeExit() {
+	if panic := recover(); panic != nil {
+		message := fmt.Sprintf("%v%v%v", panic, LineEnding, string(debug.Stack()))
+		LogFatality(message)
+	}
 }
 
 type logLevel string
@@ -40,7 +45,7 @@ func writeLog(level logLevel, format string, v ...interface{}) {
 	if Config_LogGoId.GetBool() {
 		prefix += fmt.Sprintf("%v | ", currentGoId())
 	}
-	log.Printf(prefix+format, v...)
+	log.Printf(prefix+format+LineEnding, v...)
 }
 
 // Low performance

@@ -2,7 +2,6 @@ package main
 
 import (
 	pb "clusrun/protobuf"
-	"fmt"
 	"net"
 	"syscall"
 	"time"
@@ -17,28 +16,28 @@ type program struct {
 }
 
 func (program) Init(env svc.Environment) error {
-	fmt.Println("Service is being initialized")
+	Printlnf("Service is being initialized")
 	SetupFireWall()
 	InitDatabase()
-	fmt.Println("Service initialized")
+	Printlnf("Service initialized")
 	return nil
 }
 
 func (p *program) Start() error {
 	go p.startNodeService()
-	fmt.Println("Service started with pid", syscall.Getpid())
+	Printlnf("Service started with pid %v", syscall.Getpid())
 	return nil
 }
 
 func (p *program) Stop() error {
-	fmt.Println("Service is stopping")
+	Printlnf("Service is stopping")
 	go func() {
 		time.Sleep(10 * time.Second)
-		fmt.Println("Force stop service")
+		Printlnf("Force stop service")
 		p.grpc_server.Stop()
 	}()
 	p.grpc_server.GracefulStop()
-	fmt.Println("Service stopped")
+	Printlnf("Service stopped")
 	return nil
 }
 

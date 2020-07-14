@@ -100,7 +100,7 @@ func SaveNodeConfigs() {
 		if os.IsNotExist(err) {
 			LogInfo("Config file doesn't exist, build it")
 		} else {
-			LogWarning("Failed to parse config file: %v\nRebuild it", err)
+			LogWarning("Failed to parse config file: %v%vRebuild it", err, LineEnding)
 		}
 		config = make(map[string]interface{})
 	}

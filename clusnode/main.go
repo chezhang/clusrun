@@ -43,7 +43,7 @@ func main() {
 }
 
 func displayNodeUsage() {
-	fmt.Printf(`
+	Printlnf(`
 Usage: 
 	clusnode <command> [options]
 
@@ -63,22 +63,25 @@ Usage of config:
 }
 
 func initGlobalVars() {
+	RunOnWindows = runtime.GOOS == "windows"
+
+	LineEnding = "\n"
+	if RunOnWindows {
+		LineEnding = "\r\n"
+	}
+
 	var err error
 	if ExecutablePath, err = os.Executable(); err != nil {
-		fmt.Printf("Failed to get executable path: %v", err)
-		os.Exit(1)
+		Fatallnf("Failed to get executable path: %v", err)
 	}
 
 	hostname, err := os.Hostname()
 	if err != nil {
-		fmt.Printf("Failed to get hostname: %v", err)
-		os.Exit(1)
+		Fatallnf("Failed to get hostname: %v", err)
 	}
 	NodeName = strings.ToUpper(hostname)
 
 	localHost = NodeName + ":" + DefaultPort
-
-	RunOnWindows = runtime.GOOS == "windows"
 
 	Tls.Enabled = true
 	curDir := filepath.Dir(ExecutablePath)
@@ -110,27 +113,24 @@ func start(args []string) {
 	// Setup the host address of this node
 	var err error
 	if _, _, NodeHost, err = ParseHostAddress(*host); err != nil {
-		fmt.Printf("Failed to parse node host address: %v\n", err)
-		os.Exit(1)
+		Fatallnf("Failed to parse node host address: %v", err)
 	}
 
 	// Setup log file
 	if *log_file == default_log_file_label {
 		if err := os.MkdirAll(default_log_dir, 0644); err != nil {
-			fmt.Printf("Failed to create log dir: %v", err)
-			os.Exit(1)
+			Fatallnf("Failed to create log dir: %v", err)
 		}
 		file_name := fmt.Sprintf("%v.%v", FileNameFormatHost(NodeHost), time.Now().Format("20060102150405.log"))
 		*log_file = filepath.Join(default_log_dir, file_name)
 	}
 	f, err := os.OpenFile(*log_file, os.O_RDWR|os.O_CREATE|os.O_APPEND, 0644)
 	if err != nil {
-		fmt.Printf("Failed to open log file: %v", err)
-		os.Exit(1)
+		Fatallnf("Failed to open log file: %v", err)
 	}
 	defer f.Close()
 	log.SetOutput(f)
-	fmt.Println("Log file:", *log_file)
+	Printlnf("Log file: %v", *log_file)
 
 	// Catch and log panic
 	defer LogPanicBeforeExit()
@@ -237,7 +237,7 @@ func config(args []string) {
 }
 
 func displayConfigUsage() {
-	fmt.Printf(`
+	Printlnf(`
 Usage: 
 	clusnode config <command> [configs]
 
@@ -254,16 +254,14 @@ func setOrGetConfig(node string, set bool, headnodes []string, mode pb.SetHeadno
 	// Parse target node host
 	_, _, host, err := ParseHostAddress(node)
 	if err != nil {
-		fmt.Printf("Failed to parse the host of node to config: %v\n", err)
-		return
+		Fatallnf("Failed to parse the host of node to config: %v", err)
 	}
 
 	// Setup connection
 	conn, cancel := ConnectNode(host)
 	defer cancel()
 	if conn == nil {
-		fmt.Println("Please ensure the node is started.")
-		return
+		Fatallnf("Please ensure the node is started.")
 	}
 	defer conn.Close()
 
@@ -274,11 +272,11 @@ func setOrGetConfig(node string, set bool, headnodes []string, mode pb.SetHeadno
 	}
 	print_result := func(item string, result map[string]string, err error) {
 		if err != nil {
-			fmt.Printf("%v %v failed: %v\n", do, item, err)
+			Printlnf("%v %v failed: %v", do, item, err)
 		} else {
-			fmt.Printf("%v %v result:\n", do, item)
+			Printlnf("%v %v result:", do, item)
 			for k, v := range result {
-				fmt.Printf("\t%q: %v\n", k, v)
+				Printlnf("\t%q: %v", k, v)
 			}
 		}
 	}
