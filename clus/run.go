@@ -27,8 +27,10 @@ func Run(args []string) {
 	// files := fs.String("files", "", "specify the files or directories, which will be copied to the working directory on each node")
 	dump := fs.Bool("dump", false, "save the output to file")
 	nodes := fs.String("nodes", "", "specify certain nodes to run the command")
+	nodes_in_file := fs.String("nodes-in-file", "", "specify a file containg the nodes to run the command")
 	pattern := fs.String("pattern", "", "specify nodes matching a certain regular expression pattern to run the command")
 	groups := fs.String("groups", "", "specify certain node groups to run the command")
+	groups_in_file := fs.String("groups-in-file", "", "specify a file containg the node groups to run the command")
 	groups_intersect := fs.Bool("intersect", false, "specify to run the command in intersection (union if not specified) of node groups")
 	cache := fs.Int("cache", 1000, "specify the number of characters to cache and display for output of command on each node")
 	prompt := fs.Int("prompt", 1, "specify the number of nodes, the output of which will be displayed promptly")
@@ -51,7 +53,7 @@ func Run(args []string) {
 	if *dump {
 		output_dir = createOutputDir()
 	}
-	RunJob(command, *sweep, output_dir, *pattern, *name, parseNodesOrGroups(*groups), parseNodesOrGroups(*nodes), arguments, *cache, *prompt, *background, *groups_intersect)
+	RunJob(command, *sweep, output_dir, *pattern, *name, ParseNodesOrGroups(*groups, *groups_in_file), ParseNodesOrGroups(*nodes, *nodes_in_file), arguments, *cache, *prompt, *background, *groups_intersect)
 }
 
 func displayRunUsage(fs *flag.FlagSet) {
@@ -67,30 +69,21 @@ Options:
 func parseScript(script string) string {
 	command, err := ioutil.ReadFile(script)
 	if err != nil {
-		fmt.Printf("Failed to read commands in script: %v", err)
+		fmt.Println("Failed to read commands in script:", err)
 		os.Exit(1)
 	}
 	return string(command)
 }
 
-func parseNodesOrGroups(s string) (items []string) {
-	for _, item := range strings.Split(s, ",") {
-		if len(item) > 0 {
-			items = append(items, item)
-		}
-	}
-	return
-}
-
 func createOutputDir() string {
 	cur_dir, err := os.Getwd()
 	if err != nil {
-		fmt.Printf("Failed to get working dir: %v", err)
+		fmt.Println("Failed to get working dir:", err)
 		os.Exit(1)
 	}
 	output_dir := filepath.Join(cur_dir, "clus.run."+time.Now().Format("20060102150405.000000000"))
 	if err := os.MkdirAll(output_dir, 0644); err != nil {
-		fmt.Printf("Failed to create output dir: %v", err)
+		fmt.Println("Failed to create output dir:", err)
 		os.Exit(1)
 	}
 	return output_dir

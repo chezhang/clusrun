@@ -5,6 +5,7 @@ import (
 	"crypto/tls"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 	"time"
@@ -39,6 +40,34 @@ func ParseHeadnode(headnode string) string {
 	} else {
 		return headnode + ":" + DefaultPort
 	}
+}
+
+func ParseNodesOrGroups(s, f string) []string {
+	// if len(s) > 0 && len(file) > 0 {
+	// 	fmt.Println("Please only specify one of the string or file to load nodes or node groups.")
+	// 	os.Exit(1)
+	// }
+	items := strings.Split(s, ",")
+	if len(f) > 0 {
+		file, err := ioutil.ReadFile(f)
+		if err != nil {
+			fmt.Println("Failed to read file:", err)
+			os.Exit(1)
+		}
+		items = append(strings.Split(strings.NewReplacer("\r\n", ",", "\n", ",").Replace(string(file)), ","), items...)
+	}
+	set := map[string]bool{}
+	for _, item := range items {
+		item = strings.TrimSpace(item)
+		if len(item) > 0 {
+			set[item] = true
+		}
+	}
+	items = make([]string, 0, len(set))
+	for item := range set {
+		items = append(items, item)
+	}
+	return items
 }
 
 func GetPaddingLine(heading string) string {

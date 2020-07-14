@@ -17,6 +17,7 @@ func Node(args []string) {
 	filterBy_pattern := fs.String("pattern", "", "filter nodes matching the specified regular expression pattern")
 	filterBy_state := fs.String("state", "", "filter nodes in the specified state (ready, error or lost)")
 	filterBy_groups := fs.String("groups", "", "filter nodes in the specified node groups")
+	filterBy_groups_in_file := fs.String("groups-in-file", "", "filter nodes in the node groups specified by a file")
 	filterBy_groups_intersect := fs.Bool("intersect", false, "specify to filter nodes in intersection (union if not specified) of node groups")
 	groupBy := fs.String("group-by", "", "group the nodes by state or node group")         // name prefix, running jobs
 	orderBy := fs.String("order-by", "name", "sort the nodes by node name or node groups") // running jobs
@@ -35,7 +36,8 @@ func Node(args []string) {
 	}
 
 	// Get nodes
-	nodes := getNodes(*filterBy_pattern, *filterBy_state, *filterBy_groups, *filterBy_groups_intersect)
+	groups := ParseNodesOrGroups(*filterBy_groups, *filterBy_groups_in_file)
+	nodes := getNodes(*filterBy_pattern, *filterBy_state, groups, *filterBy_groups_intersect)
 
 	// Add or remove node groups
 	var groupMsgs []string
@@ -50,7 +52,7 @@ func Node(args []string) {
 			setGroups = true
 		}
 		if setGroups {
-			nodes = getNodes(*filterBy_pattern, *filterBy_state, *filterBy_groups, *filterBy_groups_intersect)
+			nodes = getNodes(*filterBy_pattern, *filterBy_state, groups, *filterBy_groups_intersect)
 		}
 	}
 	printGroupMsgs := func() {
@@ -78,7 +80,7 @@ func Node(args []string) {
 	}
 }
 
-func getNodes(pattern, state, groups string, intersect bool) (nodes []*pb.Node) {
+func getNodes(pattern, state string, groups []string, intersect bool) (nodes []*pb.Node) {
 	// Validate node state
 	node_state := pb.NodeState_Unknown
 	switch strings.ToLower(state) {
@@ -95,19 +97,6 @@ func getNodes(pattern, state, groups string, intersect bool) (nodes []*pb.Node) 
 		os.Exit(1)
 	}
 
-	// Parse groups
-	node_groups_set := map[string]bool{}
-	node_groups := strings.Split(groups, ",")
-	for _, group := range node_groups {
-		if len(group) > 0 {
-			node_groups_set[strings.TrimSpace(group)] = true
-		}
-	}
-	node_groups = make([]string, 0, len(node_groups_set))
-	for k := range node_groups_set {
-		node_groups = append(node_groups, k)
-	}
-
 	// Setup connection
 	conn, cancel := ConnectHeadnode()
 	defer cancel()
@@ -117,7 +106,7 @@ func getNodes(pattern, state, groups string, intersect bool) (nodes []*pb.Node) 
 	defer cancel()
 
 	// Get nodes reporting to the headnode
-	reply, err := c.GetNodes(ctx, &pb.GetNodesRequest{Pattern: pattern, Groups: node_groups, State: node_state, GroupsIntersect: intersect})
+	reply, err := c.GetNodes(ctx, &pb.GetNodesRequest{Pattern: pattern, Groups: groups, State: node_state, GroupsIntersect: intersect})
 	if err != nil {
 		fmt.Println("Could not get nodes:", err)
 		os.Exit(1)
