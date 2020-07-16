@@ -6,7 +6,6 @@ import (
 	"flag"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"math"
 	"os"
 	"os/signal"
@@ -43,7 +42,7 @@ func Run(args []string) {
 	command := strings.Join(fs.Args(), " ")
 	var arguments []string
 	if len(*script) > 0 {
-		command = parseScript(*script)
+		command = ReadFile(*script)
 		arguments = fs.Args()
 	} else if len(command) <= 0 {
 		displayRunUsage(fs)
@@ -64,14 +63,6 @@ Usage:
 Options:
 `)
 	fs.PrintDefaults()
-}
-
-func parseScript(script string) string {
-	command, err := ioutil.ReadFile(script)
-	if err != nil {
-		Fatallnf("Failed to read commands in script: %v", err)
-	}
-	return string(command)
 }
 
 func createOutputDir() string {

@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"golang.org/x/net/html/charset"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
@@ -43,17 +44,24 @@ func ParseHeadnode(headnode string) string {
 	}
 }
 
+func ReadFile(f string) string {
+	b, err := ioutil.ReadFile(f)
+	if err != nil {
+		Fatallnf("Failed to read file %q: %v", f, err)
+	}
+	if _, e, _ := charset.DetermineEncoding(b, ""); e != "utf-8" && e != "windows-1252" {
+		Fatallnf("Invalid encoding %q of file %q", e, f)
+	}
+	return string(b)
+}
+
 func ParseNodesOrGroups(s, f string) []string {
 	// if len(s) > 0 && len(file) > 0 {
 	// 	Fatallnf("Please only specify one of the string or file to load nodes or node groups.")
 	// }
 	items := strings.Split(s, ",")
 	if len(f) > 0 {
-		file, err := ioutil.ReadFile(f)
-		if err != nil {
-			Fatallnf("Failed to read file: %v", err)
-		}
-		items = append(strings.Split(strings.NewReplacer("\r\n", ",", "\n", ",").Replace(string(file)), ","), items...)
+		items = append(strings.Split(strings.NewReplacer("\r\n", ",", "\n", ",").Replace(ReadFile(f)), ","), items...)
 	}
 	set := map[string]bool{}
 	for _, item := range items {
