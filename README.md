@@ -316,7 +316,7 @@ The substance of clusrun installation is to copy the setup package to a node and
         2. Optionally, create a VM in the same subnet as the headnode
         3. Install [Azure PowerShell](https://docs.microsoft.com/en-us/powershell/azure/install-az-ps) module if it is not installed yet
         4. [Sign in](https://docs.microsoft.com/en-us/powershell/module/az.accounts/connect-azaccount) Azure account and [select](https://docs.microsoft.com/en-us/powershell/module/az.accounts/set-azcontext) corresponding subscription in PowerShell
-        5. Download and run [vmss.ps1](https://github.com/chezhang/clusrun/releases/download/v0.2.0/vmss.ps1) to install clusrun as a VMSS extension. Specify the node names of headnodes, to which the clusrun client should connect, when running the script, or the first instance in the VMSS will be used as a headnode
+        5. Download script `vmss.ps1` from [Releases](https://github.com/chezhang/clusrun/releases) and run it to install clusrun as a VMSS extension. Specify the node names of headnodes, to which the clusrun client should connect, when running the script, or the first instance in the VMSS will be used as a headnode
 
             <details><summary>Example</summary>
 
