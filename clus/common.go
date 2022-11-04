@@ -28,12 +28,12 @@ var (
 	LineEnding   string
 	ConsoleWidth int
 	Headnode     *string
-	insecure     *bool
+	secure     *bool
 )
 
 func SetGlobalParameters(fs *flag.FlagSet) {
 	Headnode = fs.String("headnode", LocalHost, "specify the headnode to connect")
-	insecure = fs.Bool("insecure", false, "specify to connect headnode with insecure connection")
+	secure = fs.Bool("secure", false, "specify to connect headnode with secure connection")
 }
 
 func ParseHeadnode(headnode string) string {
@@ -106,7 +106,7 @@ func MaxInt(array ...int) int {
 func ConnectHeadnode() (*grpc.ClientConn, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(context.Background(), ConnectTimeout)
 	secureOption := grpc.WithInsecure()
-	if !*insecure {
+	if *secure {
 		config := &tls.Config{
 			InsecureSkipVerify: true,
 		}
