@@ -36,6 +36,7 @@ func Run(args []string) {
 	sweep := fs.String("sweep", "", `perform parametric sweep by replacing specified placeholder string in the command on each node to sequence number (in specified range and step optionally) with format "placeholder[{begin[-end][:step]}]"`)
 	background := fs.Bool("background", false, "run command without printing output")
 	name := fs.String("name", "", "specify the job name")
+	powershell := fs.Bool("powershell", false, "wrap the command with PowerShell")
 	// pick := fs.Int("pick", 0, "pick certain number of nodes to run, default 0 means pick all nodes")
 	// merge := fs.Bool("merge", false, "specify if merge outputs with the same content for different nodes")
 	_ = fs.Parse(args)
@@ -52,7 +53,7 @@ func Run(args []string) {
 	if *dump {
 		output_dir = createOutputDir()
 	}
-	RunJob(command, *sweep, output_dir, *pattern, *name, ParseNodesOrGroups(*groups, *groups_in_file), ParseNodesOrGroups(*nodes, *nodes_in_file), arguments, *cache, *prompt, *background, *groups_intersect)
+	RunJob(command, *sweep, output_dir, *pattern, *name, ParseNodesOrGroups(*groups, *groups_in_file), ParseNodesOrGroups(*nodes, *nodes_in_file), arguments, *cache, *prompt, *background, *groups_intersect, *powershell)
 }
 
 func displayRunUsage(fs *flag.FlagSet) {
@@ -77,8 +78,11 @@ func createOutputDir() string {
 	return output_dir
 }
 
-func RunJob(command, sweep, output_dir, pattern, name string, groups, nodes, arguments []string, cache_size, prompt int, background, intersect bool) {
+func RunJob(command, sweep, output_dir, pattern, name string, groups, nodes, arguments []string, cache_size, prompt int, background, intersect, powershell bool) {
 	dump := len(output_dir) > 0
+	if powershell {
+		command = fmt.Sprintf("PowerShell -ExecutionPolicy ByPass -Command \"%v\"", command)
+	}
 
 	// Setup connection
 	conn, cancel := ConnectHeadnode()

@@ -59,7 +59,7 @@ func Job(args []string) {
 				lebal := fmt.Sprintf("Rerun job %v", job.Id)
 				fmt.Printf("%v: ", lebal)
 				name := fmt.Sprintf("[%v] %v", lebal, job.Name)
-				RunJob(job.Command, job.Sweep, "", job.NodePattern, name, job.NodeGroups, job.SpecifiedNodes, job.Arguments, 0, 0, true, false)
+				RunJob(job.Command, job.Sweep, "", job.NodePattern, name, job.NodeGroups, job.SpecifiedNodes, job.Arguments, 0, 0, true, false, false)
 			}
 		}
 		return
@@ -84,7 +84,7 @@ func Job(args []string) {
 					for node := range job.FailedNodes {
 						failedNodes = append(failedNodes, node)
 					}
-					RunJob(job.Command, "", "", "", name, nil, failedNodes, job.Arguments, 0, 0, true, false)
+					RunJob(job.Command, "", "", "", name, nil, failedNodes, job.Arguments, 0, 0, true, false, false)
 				}
 			}
 		}
